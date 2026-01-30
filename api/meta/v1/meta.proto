@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package meta.v1;
+
+option go_package = "github.com/norncorp/loki/pkg/api/meta/v1;metaapi";
+
+// NOTE: Resource and Field definitions must stay in sync with:
+// - heimdall/api/observer/v1/observer.proto
+// TODO: Refactor to use shared proto module
+
+// LokiMetaService provides metadata APIs for Loki services
+service LokiMetaService {
+  // GetResources returns resource schemas for all services on this node
+  rpc GetResources(GetResourcesRequest) returns (GetResourcesResponse) {}
+}
+
+// GetResourcesRequest requests resource metadata
+message GetResourcesRequest {
+  // Optional: filter by specific service name
+  string service_name = 1;
+
+  // RPC forwarding path (for multi-hop routing)
+  repeated string path = 2;
+
+  // Current position in the path
+  int32 current_hop = 3;
+}
+
+// GetResourcesResponse contains resource schemas
+message GetResourcesResponse {
+  repeated ServiceResources services = 1;
+}
+
+// ServiceResources contains resources for a single service
+message ServiceResources {
+  string service_name = 1;
+  repeated Resource resources = 2;
+}
+
+// Resource represents a data resource (table/collection)
+message Resource {
+  string name = 1;           // Resource name (e.g., "user", "order")
+  int32 row_count = 2;       // Number of rows/records
+  repeated Field fields = 3; // Field schema
+  string plural_name = 4;    // Plural form for endpoint (e.g., "users", "orders")
+}
+
+// Field represents a field/column in a resource
+message Field {
+  string name = 1;           // Field name
+  string type = 2;           // Field type (uuid, name, email, int, etc.)
+  repeated string values = 3; // Enum values (if type is enum)
+  optional double min = 4;   // Min value (for numeric types)
+  optional double max = 5;   // Max value (for numeric types)
+}
