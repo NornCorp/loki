@@ -237,6 +237,43 @@ service "api" {
 
 CPU load uses a duty cycle (busy loop + sleep in 10ms windows). Memory is allocated and touched per request, then released when the response completes. Useful for Kubernetes HPA, resource limits, and OOMKill demos.
 
+### Rate Limiting
+
+Throttle requests beyond a configured rate:
+
+```hcl
+service "api" {
+  type   = "http"
+  listen = "0.0.0.0:8080"
+
+  # Service-level: applies to all handlers
+  rate_limit {
+    rps    = 100
+    status = 429
+    response {
+      headers = { "Retry-After" = "1" }
+      body = jsonencode({ error = "rate_limited" })
+    }
+  }
+
+  # Handler-level: overrides service-level for this route
+  handle "search" {
+    route = "GET /search"
+
+    rate_limit {
+      rps    = 10
+      status = 429
+    }
+
+    response {
+      body = jsonencode({ results = [] })
+    }
+  }
+}
+```
+
+Uses a token bucket algorithm -- requests are allowed up to the RPS rate with burst capacity equal to the RPS value. Unlike error injection (probabilistic), rate limiting is deterministic based on actual request volume.
+
 ### Static Files
 
 Serve files from a directory:
