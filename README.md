@@ -23,6 +23,7 @@ curl http://localhost:8080/hello
 | `tcp` | TCP server with pattern matching | Redis-like cache, custom protocols |
 | `connect` | Connect-RPC/gRPC services with auto-generated methods | Typed service APIs |
 | `proxy` | Reverse proxy with header transforms and route overrides | API gateway, load balancer |
+| `postgres` | PostgreSQL wire protocol with SQL query handling | Database, data store |
 
 ## Configuration
 
@@ -208,6 +209,70 @@ service "redis-like" {
 }
 ```
 
+### PostgreSQL
+
+Simulate a PostgreSQL database with tables, fake data, and SQL query handling. Clients like `psql` and `pgcli` can connect and run queries against auto-generated data.
+
+```hcl
+service "db" {
+  type   = "postgres"
+  listen = "0.0.0.0:5432"
+
+  auth {
+    users    = { "app" = "secret" }
+    database = "myapp"
+  }
+
+  table "user" {
+    rows = 100
+    column "id"    { type = "uuid" }
+    column "name"  { type = "name" }
+    column "email" { type = "email" }
+  }
+
+  table "order" {
+    rows = 50
+    column "id"      { type = "uuid" }
+    column "user_id" { type = "uuid" }
+
+    column "total" {
+      type = "decimal"
+      min  = 10
+      max  = 500
+    }
+
+    column "status" {
+      type   = "enum"
+      values = ["pending", "shipped", "delivered"]
+    }
+
+    column "created_at" { type = "datetime" }
+  }
+
+  # Custom query override
+  query "select * from users where status = *" {
+    from_table = "user"
+    where      = "status = ${2}"
+  }
+}
+```
+
+Supports:
+
+- MD5 password authentication (or trust mode when no `auth` block)
+- `SELECT`, `INSERT`, `UPDATE`, `DELETE` with auto-generated fake data
+- WHERE clause filtering and LIMIT
+- Table name pluralization (`table "user"` responds to `SELECT * FROM users`)
+- Custom query patterns with wildcard captures (`*` → `${1}`, `${2}`, ...)
+- System catalog queries for client compatibility (`pg_catalog`, `information_schema`)
+
+Connect with any PostgreSQL client:
+
+```bash
+psql -h localhost -p 5432 -U app -d myapp
+pgcli -h localhost -p 5432 -u app -d myapp
+```
+
 ### Connect-RPC
 
 Define gRPC/Connect-RPC services with auto-generated CRUD methods:
@@ -310,6 +375,7 @@ loki validate -c config.hcl    # Validate a config file without starting
 | [http-gateway.hcl](examples/http-gateway.hcl) | Service chaining with steps and Heimdall |
 | [multi-service-mesh.hcl](examples/multi-service-mesh.hcl) | Full multi-service topology |
 | [tcp-patterns.hcl](examples/tcp-patterns.hcl) | TCP pattern matching (Redis-like) |
+| [postgres.hcl](examples/postgres.hcl) | PostgreSQL with tables, auth, and custom queries |
 | [connect-rpc.hcl](examples/connect-rpc.hcl) | Connect-RPC with resources, custom methods, and steps |
 | [proxy-reverse.hcl](examples/proxy-reverse.hcl) | Reverse proxy with header transforms |
 
@@ -324,6 +390,7 @@ loki/
 │   ├── service/
 │   │   ├── http/       HTTP service with routing
 │   │   ├── tcp/        TCP with pattern matching
+│   │   ├── postgres/   PostgreSQL wire protocol
 │   │   ├── connect/    Connect-RPC service
 │   │   ├── proxy/      Reverse proxy
 │   │   ├── registry.go Service lifecycle manager

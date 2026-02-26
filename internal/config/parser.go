@@ -203,10 +203,11 @@ func hasExpr(expr hcl.Expression) bool {
 
 // validServiceTypes is the set of allowed service types.
 var validServiceTypes = map[string]bool{
-	"http":    true,
-	"proxy":   true,
-	"tcp":     true,
-	"connect": true,
+	"http":     true,
+	"proxy":    true,
+	"tcp":      true,
+	"connect":  true,
+	"postgres": true,
 }
 
 // Validate checks the configuration for errors
@@ -226,7 +227,7 @@ func Validate(cfg *Config) error {
 			return fmt.Errorf("service %q: listen address is required", svc.Name)
 		}
 		if !validServiceTypes[svc.Type] {
-			return fmt.Errorf("service %q: unknown type %q (must be http, proxy, tcp, or connect)", svc.Name, svc.Type)
+			return fmt.Errorf("service %q: unknown type %q (must be http, proxy, tcp, connect, or postgres)", svc.Name, svc.Type)
 		}
 
 		if err := validateServiceFields(svc); err != nil {
@@ -293,6 +294,22 @@ func validateServiceFields(svc *ServiceConfig) error {
 		if hasExpr(svc.ResponseHeaders) {
 			return fmt.Errorf("service %q: \"response_headers\" is only valid for proxy services", svc.Name)
 		}
+	case "postgres":
+		if svc.Package != "" {
+			return fmt.Errorf("service %q: \"package\" is only valid for connect services", svc.Name)
+		}
+		if hasExpr(svc.TargetExpr) {
+			return fmt.Errorf("service %q: \"target\" is only valid for proxy services", svc.Name)
+		}
+		if hasExpr(svc.RequestHeaders) {
+			return fmt.Errorf("service %q: \"request_headers\" is only valid for proxy services", svc.Name)
+		}
+		if hasExpr(svc.ResponseHeaders) {
+			return fmt.Errorf("service %q: \"response_headers\" is only valid for proxy services", svc.Name)
+		}
+		if len(svc.Resources) > 0 {
+			return fmt.Errorf("service %q: use \"table\" blocks instead of \"resource\" blocks for postgres services", svc.Name)
+		}
 	}
 	return nil
 }
@@ -324,6 +341,13 @@ func validateHandlerFields(svc *ServiceConfig, handler *HandlerConfig) error {
 		}
 		if handler.Route != "" {
 			return fmt.Errorf("service %q handler %q: \"route\" is not valid for connect services (the handler label is the method name)", svc.Name, handler.Name)
+		}
+	case "postgres":
+		if handler.Route != "" {
+			return fmt.Errorf("service %q handler %q: \"route\" is not valid for postgres services", svc.Name, handler.Name)
+		}
+		if handler.Pattern != "" {
+			return fmt.Errorf("service %q handler %q: \"pattern\" is not valid for postgres services", svc.Name, handler.Name)
 		}
 	}
 	return nil

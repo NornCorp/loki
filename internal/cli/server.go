@@ -10,10 +10,11 @@ import (
 
 	"github.com/norncorp/loki/internal/config"
 	"github.com/norncorp/loki/internal/service"
-	_ "github.com/norncorp/loki/internal/service/connect" // Register Connect-RPC service
-	"github.com/norncorp/loki/internal/service/http"      // Need for log registry
-	_ "github.com/norncorp/loki/internal/service/proxy"   // Register Proxy service
-	_ "github.com/norncorp/loki/internal/service/tcp"     // Register TCP service
+	_ "github.com/norncorp/loki/internal/service/connect"  // Register Connect-RPC service
+	"github.com/norncorp/loki/internal/service/http"       // Need for log registry
+	_ "github.com/norncorp/loki/internal/service/postgres" // Register PostgreSQL service
+	_ "github.com/norncorp/loki/internal/service/proxy"    // Register Proxy service
+	_ "github.com/norncorp/loki/internal/service/tcp"      // Register TCP service
 	"github.com/spf13/cobra"
 )
 
