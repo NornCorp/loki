@@ -261,6 +261,9 @@ func validateServiceFields(svc *ServiceConfig) error {
 		if svc.Load != nil {
 			return fmt.Errorf("service %q: \"load\" is only valid for http services", svc.Name)
 		}
+		if svc.RateLimit != nil {
+			return fmt.Errorf("service %q: \"rate_limit\" is only valid for http services", svc.Name)
+		}
 	case "connect":
 		if hasExpr(svc.TargetExpr) {
 			return fmt.Errorf("service %q: \"target\" is only valid for proxy services", svc.Name)
@@ -279,6 +282,9 @@ func validateServiceFields(svc *ServiceConfig) error {
 		}
 		if svc.Load != nil {
 			return fmt.Errorf("service %q: \"load\" is only valid for http services", svc.Name)
+		}
+		if svc.RateLimit != nil {
+			return fmt.Errorf("service %q: \"rate_limit\" is only valid for http services", svc.Name)
 		}
 		if svc.Package == "" {
 			return fmt.Errorf("service %q: \"package\" is required for connect services", svc.Name)
@@ -318,6 +324,9 @@ func validateServiceFields(svc *ServiceConfig) error {
 		if svc.Load != nil {
 			return fmt.Errorf("service %q: \"load\" is only valid for http services", svc.Name)
 		}
+		if svc.RateLimit != nil {
+			return fmt.Errorf("service %q: \"rate_limit\" is only valid for http services", svc.Name)
+		}
 	case "postgres":
 		if svc.Package != "" {
 			return fmt.Errorf("service %q: \"package\" is only valid for connect services", svc.Name)
@@ -339,6 +348,9 @@ func validateServiceFields(svc *ServiceConfig) error {
 		}
 		if svc.Load != nil {
 			return fmt.Errorf("service %q: \"load\" is only valid for http services", svc.Name)
+		}
+		if svc.RateLimit != nil {
+			return fmt.Errorf("service %q: \"rate_limit\" is only valid for http services", svc.Name)
 		}
 		if len(svc.Resources) > 0 {
 			return fmt.Errorf("service %q: use \"table\" blocks instead of \"resource\" blocks for postgres services", svc.Name)

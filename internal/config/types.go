@@ -34,6 +34,7 @@ type ServiceConfig struct {
 	Timing          *TimingConfig      `hcl:"timing,block"`
 	Load            *LoadConfig        `hcl:"load,block"`                // For HTTP services
 	Errors          []*ErrorConfig     `hcl:"error,block"`
+	RateLimit       *RateLimitConfig   `hcl:"rate_limit,block"`
 	Handlers        []*HandlerConfig   `hcl:"handle,block"`
 	Resources       []*ResourceConfig  `hcl:"resource,block"`
 	Tables          []*TableConfig     `hcl:"table,block"`               // For postgres service
@@ -50,9 +51,10 @@ type HandlerConfig struct {
 	Name     string          `hcl:"name,label"`
 	Route    string          `hcl:"route,optional"`
 	Pattern  string          `hcl:"pattern,optional"` // For TCP pattern matching
-	Timing   *TimingConfig   `hcl:"timing,block"`
-	Errors   []*ErrorConfig  `hcl:"error,block"`
-	Steps    []*StepConfig   `hcl:"step,block"`
+	Timing    *TimingConfig    `hcl:"timing,block"`
+	Errors    []*ErrorConfig   `hcl:"error,block"`
+	RateLimit *RateLimitConfig `hcl:"rate_limit,block"`
+	Steps     []*StepConfig    `hcl:"step,block"`
 	Response *ResponseConfig `hcl:"response,block"`
 	Body     hcl.Body        `hcl:",remain"`
 }
@@ -95,6 +97,14 @@ type ErrorConfig struct {
 	Name     string          `hcl:"name,label"`
 	Rate     float64         `hcl:"rate"`
 	Status   int             `hcl:"status"`
+	Response *ResponseConfig `hcl:"response,block"`
+	Body     hcl.Body        `hcl:",remain"`
+}
+
+// RateLimitConfig defines rate limiting parameters
+type RateLimitConfig struct {
+	RPS      float64         `hcl:"rps"`
+	Status   int             `hcl:"status,optional"`
 	Response *ResponseConfig `hcl:"response,block"`
 	Body     hcl.Body        `hcl:",remain"`
 }

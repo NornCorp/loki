@@ -38,6 +38,8 @@ type HTTPService struct {
 	staticHandler    http.Handler            // Static file server (optional)
 	staticPrefix     string                  // URL prefix for static files
 	loadGenerator    *service.LoadGenerator  // CPU/memory load generator (optional)
+	rateLimiter      *service.RateLimiter              // Service-level rate limiter (optional)
+	handlerLimiters  map[string]*service.RateLimiter  // Handler-level rate limiters
 }
 
 // NewHTTPService creates a new HTTP service
@@ -192,6 +194,75 @@ func NewHTTPService(cfg *config.ServiceConfig) (*HTTPService, error) {
 			CPUPercent: cpuPercent / 100.0, // Convert percentage to 0.0-1.0
 			Memory:     memBytes,
 		})
+	}
+
+	// Set up rate limiter if configured
+	if cfg.RateLimit != nil {
+		rlCfg := service.RateLimitConfig{
+			RPS:    cfg.RateLimit.RPS,
+			Status: cfg.RateLimit.Status,
+		}
+		if cfg.RateLimit.Response != nil {
+			if cfg.RateLimit.Response.BodyExpr != nil {
+				evalCtx := &hcl.EvalContext{Functions: config.Functions()}
+				value, diags := cfg.RateLimit.Response.BodyExpr.Value(evalCtx)
+				if diags.HasErrors() {
+					return nil, fmt.Errorf("failed to evaluate rate_limit response body: %s", diags.Error())
+				}
+				rlCfg.Body = value.AsString()
+			}
+			if cfg.RateLimit.Response.HeadersExpr != nil {
+				evalCtx := &hcl.EvalContext{Functions: config.Functions()}
+				headersVal, diags := cfg.RateLimit.Response.HeadersExpr.Value(evalCtx)
+				if diags.HasErrors() {
+					return nil, fmt.Errorf("failed to evaluate rate_limit response headers: %s", diags.Error())
+				}
+				rlCfg.Headers = make(map[string]string)
+				if !headersVal.IsNull() {
+					for key, val := range headersVal.AsValueMap() {
+						rlCfg.Headers[key] = val.AsString()
+					}
+				}
+			}
+		}
+		svc.rateLimiter = service.NewRateLimiter(rlCfg)
+	}
+
+	// Set up handler-level rate limiters
+	for _, handler := range cfg.Handlers {
+		if handler.RateLimit != nil {
+			if svc.handlerLimiters == nil {
+				svc.handlerLimiters = make(map[string]*service.RateLimiter)
+			}
+			hlCfg := service.RateLimitConfig{
+				RPS:    handler.RateLimit.RPS,
+				Status: handler.RateLimit.Status,
+			}
+			if handler.RateLimit.Response != nil {
+				if handler.RateLimit.Response.BodyExpr != nil {
+					evalCtx := &hcl.EvalContext{Functions: config.Functions()}
+					value, diags := handler.RateLimit.Response.BodyExpr.Value(evalCtx)
+					if diags.HasErrors() {
+						return nil, fmt.Errorf("failed to evaluate handler %q rate_limit response body: %s", handler.Name, diags.Error())
+					}
+					hlCfg.Body = value.AsString()
+				}
+				if handler.RateLimit.Response.HeadersExpr != nil {
+					evalCtx := &hcl.EvalContext{Functions: config.Functions()}
+					headersVal, diags := handler.RateLimit.Response.HeadersExpr.Value(evalCtx)
+					if diags.HasErrors() {
+						return nil, fmt.Errorf("failed to evaluate handler %q rate_limit response headers: %s", handler.Name, diags.Error())
+					}
+					hlCfg.Headers = make(map[string]string)
+					if !headersVal.IsNull() {
+						for key, val := range headersVal.AsValueMap() {
+							hlCfg.Headers[key] = val.AsString()
+						}
+					}
+				}
+			}
+			svc.handlerLimiters[handler.Name] = service.NewRateLimiter(hlCfg)
+		}
 	}
 
 	return svc, nil
@@ -485,6 +556,19 @@ func (s *HTTPService) handleRequest(w http.ResponseWriter, r *http.Request, rout
 		// Use service-level errors
 		if errCfg := s.errorInjector.ShouldInject(); errCfg != nil {
 			s.errorInjector.WriteError(w, errCfg)
+			return
+		}
+	}
+
+	// Apply rate limiting (handler-level overrides service-level)
+	if rl, ok := s.handlerLimiters[handler.Name]; ok {
+		if !rl.Allow() {
+			rl.WriteError(w)
+			return
+		}
+	} else if s.rateLimiter != nil {
+		if !s.rateLimiter.Allow() {
+			s.rateLimiter.WriteError(w)
 			return
 		}
 	}
