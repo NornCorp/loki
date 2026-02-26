@@ -1,0 +1,9 @@
+# Compiled binary
+/loki
+
+# macOS
+.DS_Store
+
+# Environment
+.env
+.env.*
