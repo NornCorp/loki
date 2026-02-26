@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -211,4 +213,109 @@ func TestHTTPService_EmptyResponse(t *testing.T) {
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Empty(t, body)
+}
+
+func TestHTTPService_StaticFiles(t *testing.T) {
+	// Create a temp directory with test files
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "index.html"), []byte("<h1>hello</h1>"), 0644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "css"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "css", "style.css"), []byte("body{}"), 0644))
+
+	cfg := &config.ServiceConfig{
+		Name:   "static-test",
+		Type:   "http",
+		Listen: "127.0.0.1:0",
+		Static: &config.StaticConfig{
+			Root: dir,
+		},
+	}
+
+	svc, err := NewHTTPService(cfg)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	err = svc.Start(ctx)
+	require.NoError(t, err)
+	defer svc.Stop(ctx)
+
+	time.Sleep(10 * time.Millisecond)
+
+	baseURL := "http://" + svc.listener.Addr().String()
+
+	t.Run("serves file at root", func(t *testing.T) {
+		resp, err := http.Get(baseURL + "/index.html")
+		require.NoError(t, err)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		require.Equal(t, "<h1>hello</h1>", string(body))
+	})
+
+	t.Run("serves nested file", func(t *testing.T) {
+		resp, err := http.Get(baseURL + "/css/style.css")
+		require.NoError(t, err)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		require.Equal(t, "body{}", string(body))
+	})
+
+	t.Run("404 for missing file", func(t *testing.T) {
+		resp, err := http.Get(baseURL + "/nope.txt")
+		require.NoError(t, err)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusNotFound, resp.StatusCode)
+	})
+}
+
+func TestHTTPService_StaticFilesWithPrefix(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "app.js"), []byte("console.log('hi')"), 0644))
+
+	cfg := &config.ServiceConfig{
+		Name:   "static-prefix-test",
+		Type:   "http",
+		Listen: "127.0.0.1:0",
+		Static: &config.StaticConfig{
+			Route: "/assets",
+			Root:  dir,
+		},
+	}
+
+	svc, err := NewHTTPService(cfg)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	err = svc.Start(ctx)
+	require.NoError(t, err)
+	defer svc.Stop(ctx)
+
+	time.Sleep(10 * time.Millisecond)
+
+	baseURL := "http://" + svc.listener.Addr().String()
+
+	t.Run("serves file under prefix", func(t *testing.T) {
+		resp, err := http.Get(baseURL + "/assets/app.js")
+		require.NoError(t, err)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		require.Equal(t, "console.log('hi')", string(body))
+	})
+
+	t.Run("404 outside prefix", func(t *testing.T) {
+		resp, err := http.Get(baseURL + "/app.js")
+		require.NoError(t, err)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusNotFound, resp.StatusCode)
+	})
 }

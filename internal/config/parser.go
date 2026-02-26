@@ -255,6 +255,12 @@ func validateServiceFields(svc *ServiceConfig) error {
 		if svc.Package != "" {
 			return fmt.Errorf("service %q: \"package\" is only valid for connect services", svc.Name)
 		}
+		if svc.Static != nil {
+			return fmt.Errorf("service %q: \"static\" is only valid for http services", svc.Name)
+		}
+		if svc.Load != nil {
+			return fmt.Errorf("service %q: \"load\" is only valid for http services", svc.Name)
+		}
 	case "connect":
 		if hasExpr(svc.TargetExpr) {
 			return fmt.Errorf("service %q: \"target\" is only valid for proxy services", svc.Name)
@@ -264,6 +270,15 @@ func validateServiceFields(svc *ServiceConfig) error {
 		}
 		if hasExpr(svc.ResponseHeaders) {
 			return fmt.Errorf("service %q: \"response_headers\" is only valid for proxy services", svc.Name)
+		}
+		if svc.CORS != nil {
+			return fmt.Errorf("service %q: \"cors\" is only valid for http and proxy services", svc.Name)
+		}
+		if svc.Static != nil {
+			return fmt.Errorf("service %q: \"static\" is only valid for http services", svc.Name)
+		}
+		if svc.Load != nil {
+			return fmt.Errorf("service %q: \"load\" is only valid for http services", svc.Name)
 		}
 		if svc.Package == "" {
 			return fmt.Errorf("service %q: \"package\" is required for connect services", svc.Name)
@@ -294,6 +309,15 @@ func validateServiceFields(svc *ServiceConfig) error {
 		if hasExpr(svc.ResponseHeaders) {
 			return fmt.Errorf("service %q: \"response_headers\" is only valid for proxy services", svc.Name)
 		}
+		if svc.CORS != nil {
+			return fmt.Errorf("service %q: \"cors\" is only valid for http and proxy services", svc.Name)
+		}
+		if svc.Static != nil {
+			return fmt.Errorf("service %q: \"static\" is only valid for http services", svc.Name)
+		}
+		if svc.Load != nil {
+			return fmt.Errorf("service %q: \"load\" is only valid for http services", svc.Name)
+		}
 	case "postgres":
 		if svc.Package != "" {
 			return fmt.Errorf("service %q: \"package\" is only valid for connect services", svc.Name)
@@ -306,6 +330,15 @@ func validateServiceFields(svc *ServiceConfig) error {
 		}
 		if hasExpr(svc.ResponseHeaders) {
 			return fmt.Errorf("service %q: \"response_headers\" is only valid for proxy services", svc.Name)
+		}
+		if svc.CORS != nil {
+			return fmt.Errorf("service %q: \"cors\" is only valid for http and proxy services", svc.Name)
+		}
+		if svc.Static != nil {
+			return fmt.Errorf("service %q: \"static\" is only valid for http services", svc.Name)
+		}
+		if svc.Load != nil {
+			return fmt.Errorf("service %q: \"load\" is only valid for http services", svc.Name)
 		}
 		if len(svc.Resources) > 0 {
 			return fmt.Errorf("service %q: use \"table\" blocks instead of \"resource\" blocks for postgres services", svc.Name)

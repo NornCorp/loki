@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/hcl/v2"
@@ -34,6 +35,9 @@ type HTTPService struct {
 	mux              *http.ServeMux
 	allConfigs       []*config.ServiceConfig // All services for meta API
 	requestLogger    *RequestLogger          // Request log ring buffer
+	staticHandler    http.Handler            // Static file server (optional)
+	staticPrefix     string                  // URL prefix for static files
+	loadGenerator    *service.LoadGenerator  // CPU/memory load generator (optional)
 }
 
 // NewHTTPService creates a new HTTP service
@@ -154,6 +158,42 @@ func NewHTTPService(cfg *config.ServiceConfig) (*HTTPService, error) {
 		requestLogger:    NewRequestLogger(1000), // Store last 1000 requests
 	}
 
+	// Set up static file server if configured
+	if cfg.Static != nil {
+		fs := http.FileServer(http.Dir(cfg.Static.Root))
+		prefix := cfg.Static.Route
+		if prefix == "" {
+			prefix = "/"
+		}
+		svc.staticPrefix = prefix
+		if prefix != "/" {
+			svc.staticHandler = http.StripPrefix(prefix, fs)
+		} else {
+			svc.staticHandler = fs
+		}
+	}
+
+	// Set up load generator if configured
+	if cfg.Load != nil {
+		var memBytes int64
+		if cfg.Load.Memory != "" {
+			var err error
+			memBytes, err = service.ParseMemorySize(cfg.Load.Memory)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse load.memory: %w", err)
+			}
+		}
+		cpuPercent := cfg.Load.CPUPercent
+		if cpuPercent > 100 {
+			cpuPercent = 100
+		}
+		svc.loadGenerator = service.NewLoadGenerator(service.LoadConfig{
+			CPUCores:   cfg.Load.CPUCores,
+			CPUPercent: cpuPercent / 100.0, // Convert percentage to 0.0-1.0
+			Memory:     memBytes,
+		})
+	}
+
 	return svc, nil
 }
 
@@ -251,17 +291,51 @@ func (s *HTTPService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Wrap response writer to capture status code
 	wrapped := &responseWriter{ResponseWriter: w, status: http.StatusOK}
 
-	// Add CORS headers for browser access
-	wrapped.Header().Set("Access-Control-Allow-Origin", "*")
-	wrapped.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-	wrapped.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	// Apply CORS headers
+	if s.config.CORS != nil {
+		origin := r.Header.Get("Origin")
+		cors := s.config.CORS
 
-	// Handle preflight requests
-	if r.Method == "OPTIONS" {
-		wrapped.WriteHeader(http.StatusOK)
-		// Log the OPTIONS request
-		s.requestLogger.Log(r.Method, r.URL.Path, wrapped.status, time.Since(start), getLogLevel(r.URL.Path, wrapped.status))
-		return
+		// Check if origin is allowed
+		allowed := false
+		for _, o := range cors.AllowedOrigins {
+			if o == "*" || o == origin {
+				allowed = true
+				break
+			}
+		}
+
+		if allowed {
+			if len(cors.AllowedOrigins) == 1 && cors.AllowedOrigins[0] == "*" {
+				wrapped.Header().Set("Access-Control-Allow-Origin", "*")
+			} else {
+				wrapped.Header().Set("Access-Control-Allow-Origin", origin)
+				wrapped.Header().Set("Vary", "Origin")
+			}
+
+			methods := "GET, POST, PUT, DELETE, OPTIONS"
+			if len(cors.AllowedMethods) > 0 {
+				methods = strings.Join(cors.AllowedMethods, ", ")
+			}
+			wrapped.Header().Set("Access-Control-Allow-Methods", methods)
+
+			headers := "Content-Type, Authorization"
+			if len(cors.AllowedHeaders) > 0 {
+				headers = strings.Join(cors.AllowedHeaders, ", ")
+			}
+			wrapped.Header().Set("Access-Control-Allow-Headers", headers)
+
+			if cors.AllowCredentials != nil && *cors.AllowCredentials {
+				wrapped.Header().Set("Access-Control-Allow-Credentials", "true")
+			}
+		}
+
+		// Handle preflight requests
+		if r.Method == "OPTIONS" {
+			wrapped.WriteHeader(http.StatusNoContent)
+			s.requestLogger.Log(r.Method, r.URL.Path, wrapped.status, time.Since(start), getLogLevel(r.URL.Path, wrapped.status))
+			return
+		}
 	}
 
 	// Try mux first (for Connect-RPC and other registered handlers)
@@ -288,6 +362,13 @@ func (s *HTTPService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Try to match a regular route
 	route, ok := s.router.Match(r)
 	if !ok {
+		// Try static file server if configured
+		if s.staticHandler != nil && strings.HasPrefix(r.URL.Path, s.staticPrefix) {
+			s.staticHandler.ServeHTTP(wrapped, r)
+			s.requestLogger.Log(r.Method, r.URL.Path, wrapped.status, time.Since(start), getLogLevel(r.URL.Path, wrapped.status))
+			return
+		}
+
 		// No matching route - return 404
 		wrapped.WriteHeader(http.StatusNotFound)
 		wrapped.Header().Set("Content-Type", "application/json")
@@ -406,6 +487,13 @@ func (s *HTTPService) handleRequest(w http.ResponseWriter, r *http.Request, rout
 			s.errorInjector.WriteError(w, errCfg)
 			return
 		}
+	}
+
+	// Apply load generation (runs in background for duration of request)
+	if s.loadGenerator != nil {
+		loadCtx, loadCancel := context.WithCancel(r.Context())
+		defer loadCancel()
+		go s.loadGenerator.Generate(loadCtx)
 	}
 
 	// Build evaluation context from request

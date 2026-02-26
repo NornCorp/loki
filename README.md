@@ -183,6 +183,86 @@ service "api" {
 
 Error blocks can also be defined at the handler level to override service defaults.
 
+### CORS
+
+Enable cross-origin requests for browser-based clients:
+
+```hcl
+service "api" {
+  type   = "http"
+  listen = "0.0.0.0:8080"
+
+  cors {
+    allowed_origins = ["*"]
+  }
+}
+```
+
+Or with specific origins and credentials:
+
+```hcl
+cors {
+  allowed_origins   = ["https://example.com", "https://app.example.com"]
+  allowed_methods   = ["GET", "POST", "PUT", "DELETE"]
+  allowed_headers   = ["Content-Type", "Authorization"]
+  allow_credentials = true
+}
+```
+
+When no `cors` block is present, no CORS headers are sent. `allowed_methods` and `allowed_headers` have sensible defaults if omitted.
+
+### Load Generation
+
+Simulate CPU and memory load during request handling for autoscaling and resource limit demos:
+
+```hcl
+service "api" {
+  type   = "http"
+  listen = "0.0.0.0:8080"
+
+  load {
+    cpu_cores   = 2      # goroutines doing busy work
+    cpu_percent = 50     # duty cycle per core
+    memory      = "256MB" # allocate and hold per request
+  }
+
+  handle "work" {
+    route = "GET /work"
+    response {
+      body = jsonencode({ status = "done" })
+    }
+  }
+}
+```
+
+CPU load uses a duty cycle (busy loop + sleep in 10ms windows). Memory is allocated and touched per request, then released when the response completes. Useful for Kubernetes HPA, resource limits, and OOMKill demos.
+
+### Static Files
+
+Serve files from a directory:
+
+```hcl
+service "cdn" {
+  type   = "http"
+  listen = "0.0.0.0:8080"
+
+  static {
+    root = "./public"
+  }
+}
+```
+
+Or mounted at a URL prefix:
+
+```hcl
+static {
+  route = "/assets"
+  root  = "./public"
+}
+```
+
+Explicit handlers and resources take priority over static files.
+
 ### TCP Pattern Matching
 
 Simulate text-based protocols with pattern matching:

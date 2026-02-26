@@ -28,8 +28,11 @@ type ServiceConfig struct {
 	TargetExpr      hcl.Expression     `hcl:"target,optional"`           // For proxy service (expression for service refs)
 	RequestHeaders  hcl.Expression     `hcl:"request_headers,optional"`  // For proxy service request header additions
 	ResponseHeaders hcl.Expression     `hcl:"response_headers,optional"` // For proxy service response header additions
+	CORS            *CORSConfig        `hcl:"cors,block"`                // For HTTP services
+	Static          *StaticConfig      `hcl:"static,block"`              // For HTTP services
 	Auth            *AuthConfig        `hcl:"auth,block"`                // For postgres service
 	Timing          *TimingConfig      `hcl:"timing,block"`
+	Load            *LoadConfig        `hcl:"load,block"`                // For HTTP services
 	Errors          []*ErrorConfig     `hcl:"error,block"`
 	Handlers        []*HandlerConfig   `hcl:"handle,block"`
 	Resources       []*ResourceConfig  `hcl:"resource,block"`
@@ -94,6 +97,30 @@ type ErrorConfig struct {
 	Status   int             `hcl:"status"`
 	Response *ResponseConfig `hcl:"response,block"`
 	Body     hcl.Body        `hcl:",remain"`
+}
+
+// CORSConfig defines CORS settings for HTTP services
+type CORSConfig struct {
+	AllowedOrigins   []string `hcl:"allowed_origins"`
+	AllowedMethods   []string `hcl:"allowed_methods,optional"`
+	AllowedHeaders   []string `hcl:"allowed_headers,optional"`
+	AllowCredentials *bool    `hcl:"allow_credentials,optional"`
+	Body             hcl.Body `hcl:",remain"`
+}
+
+// LoadConfig defines load generation parameters
+type LoadConfig struct {
+	CPUCores   int     `hcl:"cpu_cores,optional"`
+	CPUPercent float64 `hcl:"cpu_percent,optional"`
+	Memory     string  `hcl:"memory,optional"`
+	Body       hcl.Body `hcl:",remain"`
+}
+
+// StaticConfig defines a static file server
+type StaticConfig struct {
+	Route string   `hcl:"route,optional"`
+	Root  string   `hcl:"root"`
+	Body  hcl.Body `hcl:",remain"`
 }
 
 // AuthConfig defines authentication for postgres services
