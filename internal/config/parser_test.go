@@ -8,6 +8,7 @@ import (
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/stretchr/testify/require"
+	"github.com/zclconf/go-cty/cty"
 )
 
 func TestParseFile_MinimalHTTPService(t *testing.T) {
@@ -245,6 +246,344 @@ service "test" {
 			require.Equal(t, tt.expected, value.AsString())
 		})
 	}
+}
+
+func TestParse_ServiceReferences(t *testing.T) {
+	cfg, err := ParseFile("testdata/service_refs.hcl")
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+	require.Len(t, cfg.Services, 2)
+
+	// Verify service vars are populated on all services
+	backend := cfg.Services[0]
+	require.Equal(t, "backend", backend.Name)
+	require.NotNil(t, backend.ServiceVars)
+	require.Contains(t, backend.ServiceVars, "backend")
+	require.Contains(t, backend.ServiceVars, "proxy")
+
+	proxy := cfg.Services[1]
+	require.Equal(t, "proxy", proxy.Name)
+
+	// Verify the service.backend.* vars resolve correctly
+	backendVars := backend.ServiceVars["backend"]
+	backendMap := backendVars.AsValueMap()
+	require.Equal(t, "http://127.0.0.1:8081", backendMap["url"].AsString())
+	require.Equal(t, "127.0.0.1:8081", backendMap["address"].AsString())
+	require.Equal(t, "127.0.0.1", backendMap["host"].AsString())
+	require.Equal(t, "8081", backendMap["port"].AsString())
+	require.Equal(t, "http", backendMap["type"].AsString())
+
+	// Verify proxy's target expression can be evaluated with service vars
+	require.NotNil(t, proxy.TargetExpr)
+	evalCtx := &hcl.EvalContext{
+		Functions: Functions(),
+		Variables: map[string]cty.Value{
+			"service": cty.ObjectVal(proxy.ServiceVars),
+		},
+	}
+	targetVal, diags := proxy.TargetExpr.Value(evalCtx)
+	require.False(t, diags.HasErrors())
+	require.Equal(t, "http://127.0.0.1:8081", targetVal.AsString())
+}
+
+func TestParse_ServiceReferences_UnknownService(t *testing.T) {
+	src := []byte(`
+service "proxy" {
+  type   = "proxy"
+  listen = "0.0.0.0:8080"
+  target = service.nonexistent.url
+}
+`)
+
+	cfg, err := Parse(src, "test.hcl")
+	require.Error(t, err)
+	require.Nil(t, cfg)
+	require.Contains(t, err.Error(), "service")
+}
+
+func TestParse_InferUpstreams(t *testing.T) {
+	cfg, err := ParseFile("testdata/gateway_refs.hcl")
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+	require.Len(t, cfg.Services, 3)
+
+	// The gateway references user-service and order-service via step URLs
+	gateway := cfg.Services[2]
+	require.Equal(t, "api-gateway", gateway.Name)
+	require.Len(t, gateway.InferredUpstreams, 2)
+	require.Contains(t, gateway.InferredUpstreams, "user-service")
+	require.Contains(t, gateway.InferredUpstreams, "order-service")
+
+	// The upstream services should have no inferred upstreams
+	require.Empty(t, cfg.Services[0].InferredUpstreams)
+	require.Empty(t, cfg.Services[1].InferredUpstreams)
+}
+
+func TestParse_InferUpstreams_Proxy(t *testing.T) {
+	cfg, err := ParseFile("testdata/service_refs.hcl")
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+
+	// The proxy service references backend via target = service.backend.url
+	proxy := cfg.Services[1]
+	require.Equal(t, "proxy", proxy.Name)
+	require.Len(t, proxy.InferredUpstreams, 1)
+	require.Equal(t, "backend", proxy.InferredUpstreams[0])
+
+	// The backend has no upstream references
+	require.Empty(t, cfg.Services[0].InferredUpstreams)
+}
+
+func TestParse_ServiceVars_AllAttributes(t *testing.T) {
+	src := []byte(`
+service "my-api" {
+  type   = "http"
+  listen = "10.0.0.1:9090"
+}
+`)
+
+	cfg, err := Parse(src, "test.hcl")
+	require.NoError(t, err)
+
+	svc := cfg.Services[0]
+	require.NotNil(t, svc.ServiceVars)
+
+	vars := svc.ServiceVars["my-api"].AsValueMap()
+	require.Equal(t, "10.0.0.1:9090", vars["address"].AsString())
+	require.Equal(t, "10.0.0.1", vars["host"].AsString())
+	require.Equal(t, "9090", vars["port"].AsString())
+	require.Equal(t, "http", vars["type"].AsString())
+	require.Equal(t, "http://10.0.0.1:9090", vars["url"].AsString())
+}
+
+func TestValidate_UnknownServiceType(t *testing.T) {
+	cfg := &Config{
+		Services: []*ServiceConfig{
+			{Name: "api", Type: "grpc", Listen: "0.0.0.0:8080"},
+		},
+	}
+	err := Validate(cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unknown type \"grpc\"")
+}
+
+func TestValidate_PackageOnlyForConnect(t *testing.T) {
+	for _, svcType := range []string{"http", "proxy", "tcp"} {
+		t.Run(svcType, func(t *testing.T) {
+			cfg := &Config{
+				Services: []*ServiceConfig{
+					{Name: "api", Type: svcType, Listen: "0.0.0.0:8080", Package: "api.v1"},
+				},
+			}
+			err := Validate(cfg)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "\"package\" is only valid for connect services")
+		})
+	}
+}
+
+func TestValidate_ConnectRequiresPackage(t *testing.T) {
+	cfg := &Config{
+		Services: []*ServiceConfig{
+			{Name: "api", Type: "connect", Listen: "0.0.0.0:9090"},
+		},
+	}
+	err := Validate(cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "\"package\" is required for connect services")
+}
+
+func TestValidate_TargetOnlyForProxy(t *testing.T) {
+	// Parse a real HCL config to get a non-nil TargetExpr on an http service
+	src := []byte(`
+service "api" {
+  type   = "http"
+  listen = "0.0.0.0:8080"
+  target = "http://example.com"
+}
+`)
+	cfg, err := Parse(src, "test.hcl")
+	require.NoError(t, err)
+
+	err = Validate(cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "\"target\" is only valid for proxy services")
+}
+
+func TestValidate_RequestHeadersOnlyForProxy(t *testing.T) {
+	src := []byte(`
+service "api" {
+  type             = "http"
+  listen           = "0.0.0.0:8080"
+  request_headers  = { "X-Test" = "val" }
+}
+`)
+	cfg, err := Parse(src, "test.hcl")
+	require.NoError(t, err)
+
+	err = Validate(cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "\"request_headers\" is only valid for proxy services")
+}
+
+func TestValidate_ResponseHeadersOnlyForProxy(t *testing.T) {
+	src := []byte(`
+service "api" {
+  type              = "http"
+  listen            = "0.0.0.0:8080"
+  response_headers  = { "X-Test" = "val" }
+}
+`)
+	cfg, err := Parse(src, "test.hcl")
+	require.NoError(t, err)
+
+	err = Validate(cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "\"response_headers\" is only valid for proxy services")
+}
+
+func TestValidate_PatternOnlyForTCP(t *testing.T) {
+	for _, svcType := range []string{"http", "proxy"} {
+		t.Run(svcType, func(t *testing.T) {
+			cfg := &Config{
+				Services: []*ServiceConfig{
+					{
+						Name: "api", Type: svcType, Listen: "0.0.0.0:8080",
+						Handlers: []*HandlerConfig{
+							{Name: "test", Route: "GET /test", Pattern: "PING*"},
+						},
+					},
+				},
+			}
+			err := Validate(cfg)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "\"pattern\" is only valid for tcp services")
+		})
+	}
+}
+
+func TestValidate_PatternNotValidForConnect(t *testing.T) {
+	cfg := &Config{
+		Services: []*ServiceConfig{
+			{
+				Name: "api", Type: "connect", Listen: "0.0.0.0:9090", Package: "api.v1",
+				Handlers: []*HandlerConfig{
+					{Name: "Search", Pattern: "PING*"},
+				},
+			},
+		},
+	}
+	err := Validate(cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "\"pattern\" is only valid for tcp services")
+}
+
+func TestValidate_RouteRequiredForHTTP(t *testing.T) {
+	cfg := &Config{
+		Services: []*ServiceConfig{
+			{
+				Name: "api", Type: "http", Listen: "0.0.0.0:8080",
+				Handlers: []*HandlerConfig{
+					{Name: "test"},
+				},
+			},
+		},
+	}
+	err := Validate(cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "\"route\" is required for http services")
+}
+
+func TestValidate_RouteNotValidForTCP(t *testing.T) {
+	cfg := &Config{
+		Services: []*ServiceConfig{
+			{
+				Name: "cache", Type: "tcp", Listen: "0.0.0.0:6379",
+				Handlers: []*HandlerConfig{
+					{Name: "ping", Pattern: "PING*", Route: "GET /ping"},
+				},
+			},
+		},
+	}
+	err := Validate(cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "\"route\" is not valid for tcp services")
+}
+
+func TestValidate_RouteNotValidForConnect(t *testing.T) {
+	cfg := &Config{
+		Services: []*ServiceConfig{
+			{
+				Name: "api", Type: "connect", Listen: "0.0.0.0:9090", Package: "api.v1",
+				Handlers: []*HandlerConfig{
+					{Name: "Search", Route: "GET /search"},
+				},
+			},
+		},
+	}
+	err := Validate(cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "\"route\" is not valid for connect services")
+}
+
+func TestValidate_ValidProxyService(t *testing.T) {
+	src := []byte(`
+service "backend" {
+  type   = "http"
+  listen = "127.0.0.1:8081"
+}
+
+service "proxy" {
+  type             = "proxy"
+  listen           = "0.0.0.0:8080"
+  target           = service.backend.url
+  request_headers  = { "X-Proxy" = "loki" }
+  response_headers = { "X-Served-By" = "loki-proxy" }
+
+  handle "health" {
+    route = "GET /health"
+    response {
+      body = jsonencode({ status = "ok" })
+    }
+  }
+}
+`)
+	cfg, err := Parse(src, "test.hcl")
+	require.NoError(t, err)
+
+	err = Validate(cfg)
+	require.NoError(t, err)
+}
+
+func TestValidate_ValidTCPService(t *testing.T) {
+	cfg := &Config{
+		Services: []*ServiceConfig{
+			{
+				Name: "cache", Type: "tcp", Listen: "0.0.0.0:6379",
+				Handlers: []*HandlerConfig{
+					{Name: "ping", Pattern: "PING*"},
+					{Name: "default"},
+				},
+			},
+		},
+	}
+	err := Validate(cfg)
+	require.NoError(t, err)
+}
+
+func TestValidate_ValidConnectService(t *testing.T) {
+	cfg := &Config{
+		Services: []*ServiceConfig{
+			{
+				Name: "api", Type: "connect", Listen: "0.0.0.0:9090", Package: "api.v1",
+				Handlers: []*HandlerConfig{
+					{Name: "SearchUsers"},
+				},
+			},
+		},
+	}
+	err := Validate(cfg)
+	require.NoError(t, err)
 }
 
 // TestMain ensures tests run from the correct directory

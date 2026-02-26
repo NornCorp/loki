@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/norncorp/loki/internal/config"
+	"github.com/norncorp/loki/internal/meta"
 	"github.com/norncorp/loki/internal/serf"
 )
 
@@ -26,17 +27,25 @@ type Service interface {
 	Upstreams() []string
 }
 
-// Registry manages multiple services and optionally registers with Heimdall
-type Registry struct {
-	services   []Service
-	serfClient *serf.Client
-	mu         sync.Mutex
+// RequestLogRegistry is an interface for managing request logs
+type RequestLogRegistry interface {
+	Register(serviceName string, logger interface{})
+	meta.RequestLogProvider
 }
 
-// NewRegistry creates a new service registry
-func NewRegistry() *Registry {
+// Registry manages multiple services and optionally registers with Heimdall
+type Registry struct {
+	services           []Service
+	serfClient         *serf.Client
+	requestLogRegistry RequestLogRegistry
+	mu                 sync.Mutex
+}
+
+// NewRegistry creates a new service registry with a request log registry
+func NewRegistry(logRegistry RequestLogRegistry) *Registry {
 	return &Registry{
-		services: make([]Service, 0),
+		services:           make([]Service, 0),
+		requestLogRegistry: logRegistry,
 	}
 }
 
@@ -153,6 +162,7 @@ func (r *Registry) ConfigureHeimdall(heimdallCfg *config.HeimdallConfig, allConf
 
 	// Create serf client
 	client, err := serf.NewClient(serf.ClientConfig{
+		NodeName: heimdallCfg.NodeName, // Use custom node name if specified, otherwise defaults to hostname
 		JoinAddr: heimdallCfg.Address,
 		Tags:     tags,
 	})
@@ -162,13 +172,22 @@ func (r *Registry) ConfigureHeimdall(heimdallCfg *config.HeimdallConfig, allConf
 
 	r.serfClient = client
 
-	// Configure meta service on HTTP services now that we have Serf client
+	// Register HTTP service loggers and configure meta service
 	// This allows them to expose resource metadata via RPC with forwarding
 	for _, svc := range r.services {
+		// Register request logger if this is an HTTP service
 		if httpSvc, ok := svc.(interface {
-			ConfigureMetaService([]*config.ServiceConfig, *serf.Client)
+			GetRequestLogger() interface{}
+		}); ok && r.requestLogRegistry != nil {
+			logger := httpSvc.GetRequestLogger()
+			r.requestLogRegistry.Register(svc.Name(), logger)
+		}
+
+		// Configure meta service (RPC endpoint)
+		if httpSvc, ok := svc.(interface {
+			ConfigureMetaService([]*config.ServiceConfig, *serf.Client, meta.RequestLogProvider)
 		}); ok {
-			httpSvc.ConfigureMetaService(allConfigs, client)
+			httpSvc.ConfigureMetaService(allConfigs, client, r.requestLogRegistry)
 		}
 	}
 

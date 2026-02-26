@@ -39,7 +39,7 @@ func TestRegistry_ConfigureHeimdall(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			registry := NewRegistry()
+			registry := NewRegistry(nil)
 
 			// Add a mock service
 			mockSvc := &mockService{
@@ -63,7 +63,7 @@ func TestRegistry_ConfigureHeimdall(t *testing.T) {
 }
 
 func TestRegistry_StartStopWithoutHeimdall(t *testing.T) {
-	registry := NewRegistry()
+	registry := NewRegistry(nil)
 
 	mockSvc := &mockService{
 		name: "test-service",
@@ -84,7 +84,7 @@ func TestRegistry_StartStopWithoutHeimdall(t *testing.T) {
 }
 
 func TestRegistry_Services(t *testing.T) {
-	registry := NewRegistry()
+	registry := NewRegistry(nil)
 
 	svc1 := &mockService{name: "svc1", typ: "http"}
 	svc2 := &mockService{name: "svc2", typ: "tcp"}
@@ -130,4 +130,12 @@ func (m *mockService) Name() string {
 
 func (m *mockService) Type() string {
 	return m.typ
+}
+
+func (m *mockService) Address() string {
+	return "localhost:8080"
+}
+
+func (m *mockService) Upstreams() []string {
+	return []string{}
 }

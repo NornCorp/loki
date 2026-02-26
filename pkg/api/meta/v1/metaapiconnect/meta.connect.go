@@ -36,18 +36,24 @@ const (
 	// LokiMetaServiceGetResourcesProcedure is the fully-qualified name of the LokiMetaService's
 	// GetResources RPC.
 	LokiMetaServiceGetResourcesProcedure = "/meta.v1.LokiMetaService/GetResources"
+	// LokiMetaServiceGetRequestLogsProcedure is the fully-qualified name of the LokiMetaService's
+	// GetRequestLogs RPC.
+	LokiMetaServiceGetRequestLogsProcedure = "/meta.v1.LokiMetaService/GetRequestLogs"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
 var (
-	lokiMetaServiceServiceDescriptor            = v1.File_meta_v1_meta_proto.Services().ByName("LokiMetaService")
-	lokiMetaServiceGetResourcesMethodDescriptor = lokiMetaServiceServiceDescriptor.Methods().ByName("GetResources")
+	lokiMetaServiceServiceDescriptor              = v1.File_meta_v1_meta_proto.Services().ByName("LokiMetaService")
+	lokiMetaServiceGetResourcesMethodDescriptor   = lokiMetaServiceServiceDescriptor.Methods().ByName("GetResources")
+	lokiMetaServiceGetRequestLogsMethodDescriptor = lokiMetaServiceServiceDescriptor.Methods().ByName("GetRequestLogs")
 )
 
 // LokiMetaServiceClient is a client for the meta.v1.LokiMetaService service.
 type LokiMetaServiceClient interface {
 	// GetResources returns resource schemas for all services on this node
 	GetResources(context.Context, *connect.Request[v1.GetResourcesRequest]) (*connect.Response[v1.GetResourcesResponse], error)
+	// GetRequestLogs returns recent HTTP request logs for a service
+	GetRequestLogs(context.Context, *connect.Request[v1.GetRequestLogsRequest]) (*connect.Response[v1.GetRequestLogsResponse], error)
 }
 
 // NewLokiMetaServiceClient constructs a client for the meta.v1.LokiMetaService service. By default,
@@ -66,12 +72,19 @@ func NewLokiMetaServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(lokiMetaServiceGetResourcesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getRequestLogs: connect.NewClient[v1.GetRequestLogsRequest, v1.GetRequestLogsResponse](
+			httpClient,
+			baseURL+LokiMetaServiceGetRequestLogsProcedure,
+			connect.WithSchema(lokiMetaServiceGetRequestLogsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // lokiMetaServiceClient implements LokiMetaServiceClient.
 type lokiMetaServiceClient struct {
-	getResources *connect.Client[v1.GetResourcesRequest, v1.GetResourcesResponse]
+	getResources   *connect.Client[v1.GetResourcesRequest, v1.GetResourcesResponse]
+	getRequestLogs *connect.Client[v1.GetRequestLogsRequest, v1.GetRequestLogsResponse]
 }
 
 // GetResources calls meta.v1.LokiMetaService.GetResources.
@@ -79,10 +92,17 @@ func (c *lokiMetaServiceClient) GetResources(ctx context.Context, req *connect.R
 	return c.getResources.CallUnary(ctx, req)
 }
 
+// GetRequestLogs calls meta.v1.LokiMetaService.GetRequestLogs.
+func (c *lokiMetaServiceClient) GetRequestLogs(ctx context.Context, req *connect.Request[v1.GetRequestLogsRequest]) (*connect.Response[v1.GetRequestLogsResponse], error) {
+	return c.getRequestLogs.CallUnary(ctx, req)
+}
+
 // LokiMetaServiceHandler is an implementation of the meta.v1.LokiMetaService service.
 type LokiMetaServiceHandler interface {
 	// GetResources returns resource schemas for all services on this node
 	GetResources(context.Context, *connect.Request[v1.GetResourcesRequest]) (*connect.Response[v1.GetResourcesResponse], error)
+	// GetRequestLogs returns recent HTTP request logs for a service
+	GetRequestLogs(context.Context, *connect.Request[v1.GetRequestLogsRequest]) (*connect.Response[v1.GetRequestLogsResponse], error)
 }
 
 // NewLokiMetaServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -97,10 +117,18 @@ func NewLokiMetaServiceHandler(svc LokiMetaServiceHandler, opts ...connect.Handl
 		connect.WithSchema(lokiMetaServiceGetResourcesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	lokiMetaServiceGetRequestLogsHandler := connect.NewUnaryHandler(
+		LokiMetaServiceGetRequestLogsProcedure,
+		svc.GetRequestLogs,
+		connect.WithSchema(lokiMetaServiceGetRequestLogsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/meta.v1.LokiMetaService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case LokiMetaServiceGetResourcesProcedure:
 			lokiMetaServiceGetResourcesHandler.ServeHTTP(w, r)
+		case LokiMetaServiceGetRequestLogsProcedure:
+			lokiMetaServiceGetRequestLogsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -112,4 +140,8 @@ type UnimplementedLokiMetaServiceHandler struct{}
 
 func (UnimplementedLokiMetaServiceHandler) GetResources(context.Context, *connect.Request[v1.GetResourcesRequest]) (*connect.Response[v1.GetResourcesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("meta.v1.LokiMetaService.GetResources is not implemented"))
+}
+
+func (UnimplementedLokiMetaServiceHandler) GetRequestLogs(context.Context, *connect.Request[v1.GetRequestLogsRequest]) (*connect.Response[v1.GetRequestLogsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("meta.v1.LokiMetaService.GetRequestLogs is not implemented"))
 }

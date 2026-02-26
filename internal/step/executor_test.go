@@ -8,10 +8,20 @@ import (
 	"testing"
 
 	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/norncorp/loki/internal/config"
 	"github.com/stretchr/testify/require"
 	"github.com/zclconf/go-cty/cty"
 )
+
+// mustParseExpr parses a string as an HCL expression (for testing)
+func mustParseExpr(expr string) hcl.Expression {
+	parsed, diags := hclsyntax.ParseExpression([]byte(expr), "test.hcl", hcl.Pos{Line: 1, Column: 1})
+	if diags.HasErrors() {
+		panic(diags.Error())
+	}
+	return parsed
+}
 
 func TestExecutor_ExecuteSteps(t *testing.T) {
 	// Create a test HTTP server to act as upstream
@@ -47,8 +57,8 @@ func TestExecutor_ExecuteSteps(t *testing.T) {
 				{
 					Name: "user",
 					HTTP: &config.HTTPStepConfig{
-						URL:    upstream.URL + "/users/123",
-						Method: "GET",
+						URLExpr: mustParseExpr(`"` + upstream.URL + `/users/123"`),
+						Method:  "GET",
 					},
 				},
 			},
@@ -71,15 +81,15 @@ func TestExecutor_ExecuteSteps(t *testing.T) {
 				{
 					Name: "user",
 					HTTP: &config.HTTPStepConfig{
-						URL:    upstream.URL + "/users/123",
-						Method: "GET",
+						URLExpr: mustParseExpr(`"` + upstream.URL + `/users/123"`),
+						Method:  "GET",
 					},
 				},
 				{
 					Name: "orders",
 					HTTP: &config.HTTPStepConfig{
-						URL:    upstream.URL + "/orders",
-						Method: "GET",
+						URLExpr: mustParseExpr(`"` + upstream.URL + `/orders"`),
+						Method:  "GET",
 					},
 				},
 			},
@@ -133,8 +143,8 @@ func TestExecutor_StepContextAvailability(t *testing.T) {
 		{
 			Name: "first",
 			HTTP: &config.HTTPStepConfig{
-				URL:    upstream.URL + "/data",
-				Method: "GET",
+				URLExpr: mustParseExpr(`"` + upstream.URL + `/data"`),
+				Method:  "GET",
 			},
 		},
 	}

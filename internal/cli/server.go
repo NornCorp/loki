@@ -10,7 +10,10 @@ import (
 
 	"github.com/norncorp/loki/internal/config"
 	"github.com/norncorp/loki/internal/service"
-	_ "github.com/norncorp/loki/internal/service/http" // Register HTTP service
+	_ "github.com/norncorp/loki/internal/service/connect" // Register Connect-RPC service
+	"github.com/norncorp/loki/internal/service/http"      // Need for log registry
+	_ "github.com/norncorp/loki/internal/service/proxy"   // Register Proxy service
+	_ "github.com/norncorp/loki/internal/service/tcp"     // Register TCP service
 	"github.com/spf13/cobra"
 )
 
@@ -53,8 +56,11 @@ func runServer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create services: %w", err)
 	}
 
+	// Create request log registry
+	logRegistry := http.NewServiceLogRegistry()
+
 	// Create registry and register services
-	registry := service.NewRegistry()
+	registry := service.NewRegistry(logRegistry)
 	for _, svc := range services {
 		registry.Register(svc)
 	}

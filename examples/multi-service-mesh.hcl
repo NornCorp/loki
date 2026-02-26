@@ -1,5 +1,15 @@
-# Mesh Demo - Complex Service Topology with Heimdall
-# This demonstrates a realistic microservices architecture with service discovery
+# Multi-Service Mesh Example
+# Full multi-service topology with Heimdall discovery, latency injection, and error injection.
+#
+# Usage:
+#   loki server -c examples/multi-service-mesh.hcl
+#
+# Services:
+#   product-service    127.0.0.1:8083  - Product catalog with fake data
+#   user-service       127.0.0.1:8081  - User service with latency injection
+#   order-service      127.0.0.1:8082  - Order service with latency injection
+#   analytics-service  127.0.0.1:8084  - Analytics with high latency
+#   api-gateway        0.0.0.0:8080    - Frontend gateway with rate limiting
 
 # Register all services with Heimdall
 heimdall {
@@ -123,9 +133,8 @@ service "order-service" {
 
 # Analytics Service
 service "analytics-service" {
-  type      = "http"
-  listen    = "127.0.0.1:8084"
-  upstreams = ["user-service", "order-service"]
+  type   = "http"
+  listen = "127.0.0.1:8084"
 
   timing {
     p50 = "50ms"
@@ -137,9 +146,9 @@ service "analytics-service" {
     route = "GET /metrics"
     response {
       body = jsonencode({
-        total_users = 1000
+        total_users  = 1000
         total_orders = 5000
-        revenue = 125000.50
+        revenue      = 125000.50
       })
     }
   }
@@ -154,9 +163,8 @@ service "analytics-service" {
 
 # API Gateway - Frontend service
 service "api-gateway" {
-  type      = "http"
-  listen    = "0.0.0.0:8080"
-  upstreams = ["user-service", "order-service", "product-service", "analytics-service"]
+  type   = "http"
+  listen = "0.0.0.0:8080"
 
   timing {
     p50 = "20ms"
@@ -176,13 +184,13 @@ service "api-gateway" {
     route = "GET /status"
     response {
       body = jsonencode({
-        service = "api-gateway",
-        version = "1.0.0",
+        service = "api-gateway"
+        version = "1.0.0"
         upstreams = {
-          user_service = "127.0.0.1:8081"
-          order_service = "127.0.0.1:8082"
-          product_service = "127.0.0.1:8083"
-          analytics_service = "127.0.0.1:8084"
+          user_service      = service.user-service.address
+          order_service     = service.order-service.address
+          product_service   = service.product-service.address
+          analytics_service = service.analytics-service.address
         }
       })
     }

@@ -1,5 +1,16 @@
-# Gateway Example - Service Chaining Demo
-# This demonstrates calling upstream services and aggregating responses
+# HTTP Gateway Example
+# Service chaining with steps and Heimdall mesh discovery.
+#
+# Usage:
+#   loki server -c examples/http-gateway.hcl
+#
+# Test:
+#   curl http://localhost:8080/dashboard/user-123
+#   curl http://localhost:8080/health
+
+heimdall {
+  address = "localhost:7946"
+}
 
 # User Service (upstream)
 service "user-service" {
@@ -25,11 +36,14 @@ service "order-service" {
     field "user_id"    { type = "uuid" }
     field "product"    { type = "name" }
     field "total"      { type = "decimal" }
-    field "status"     { type = "enum", values = ["pending", "shipped", "delivered"] }
+    field "status" {
+      type   = "enum"
+      values = ["pending", "shipped", "delivered"]
+    }
   }
 }
 
-# API Gateway (frontend)
+# API Gateway (frontend) - aggregates upstream responses
 service "api-gateway" {
   type   = "http"
   listen = "0.0.0.0:8080"
@@ -40,7 +54,7 @@ service "api-gateway" {
     # Step 1: Fetch user details
     step "user" {
       http {
-        url    = "http://127.0.0.1:8081/users/${request.query.user_id}"
+        url    = "${service.user-service.url}/users/${request.params.user_id}"
         method = "GET"
       }
     }
@@ -48,7 +62,7 @@ service "api-gateway" {
     # Step 2: Fetch user's orders
     step "orders" {
       http {
-        url    = "http://127.0.0.1:8082/orders?user_id=${request.query.user_id}"
+        url    = "${service.order-service.url}/orders?user_id=${request.params.user_id}"
         method = "GET"
       }
     }

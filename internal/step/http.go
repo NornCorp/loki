@@ -18,7 +18,7 @@ import (
 // executeHTTPStep executes an HTTP step
 func executeHTTPStep(ctx context.Context, httpCfg *config.HTTPStepConfig, evalCtx *hcl.EvalContext) (*Result, error) {
 	// Evaluate URL expression
-	url, err := evaluateString(httpCfg.URL, evalCtx)
+	url, err := evaluateExpressionToString(httpCfg.URLExpr, evalCtx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to evaluate URL: %w", err)
 	}
@@ -26,16 +26,13 @@ func executeHTTPStep(ctx context.Context, httpCfg *config.HTTPStepConfig, evalCt
 	// Evaluate method (default to GET)
 	method := "GET"
 	if httpCfg.Method != "" {
-		method, err = evaluateString(httpCfg.Method, evalCtx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to evaluate method: %w", err)
-		}
+		method = httpCfg.Method
 	}
 
 	// Evaluate body if present
 	var bodyReader io.Reader
-	if httpCfg.Body != "" {
-		bodyStr, err := evaluateString(httpCfg.Body, evalCtx)
+	if httpCfg.BodyExpr != nil {
+		bodyStr, err := evaluateExpressionToString(httpCfg.BodyExpr, evalCtx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to evaluate body: %w", err)
 		}
@@ -48,13 +45,15 @@ func executeHTTPStep(ctx context.Context, httpCfg *config.HTTPStepConfig, evalCt
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Add headers
-	for key, valueExpr := range httpCfg.Headers {
-		value, err := evaluateString(valueExpr, evalCtx)
+	// Evaluate and add headers if present
+	if httpCfg.HeadersExpr != nil {
+		headers, err := evaluateHeaders(httpCfg.HeadersExpr, evalCtx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to evaluate header %q: %w", key, err)
+			return nil, fmt.Errorf("failed to evaluate headers: %w", err)
 		}
-		req.Header.Set(key, value)
+		for key, value := range headers {
+			req.Header.Set(key, value)
+		}
 	}
 
 	// Execute request
@@ -105,6 +104,44 @@ func executeHTTPStep(ctx context.Context, httpCfg *config.HTTPStepConfig, evalCt
 		Status:  resp.StatusCode,
 		Headers: headers,
 	}, nil
+}
+
+// evaluateExpressionToString evaluates an HCL expression to a string
+func evaluateExpressionToString(expr hcl.Expression, evalCtx *hcl.EvalContext) (string, error) {
+	value, diags := expr.Value(evalCtx)
+	if diags.HasErrors() {
+		return "", fmt.Errorf("failed to evaluate expression: %s", diags.Error())
+	}
+
+	// Convert to string
+	if value.Type().Equals(cty.String) {
+		return value.AsString(), nil
+	}
+
+	return "", fmt.Errorf("expression did not evaluate to string, got %s", value.Type().FriendlyName())
+}
+
+// evaluateHeaders evaluates an HCL expression to a map of headers
+func evaluateHeaders(expr hcl.Expression, evalCtx *hcl.EvalContext) (map[string]string, error) {
+	value, diags := expr.Value(evalCtx)
+	if diags.HasErrors() {
+		return nil, fmt.Errorf("failed to evaluate expression: %s", diags.Error())
+	}
+
+	// Headers should be an object/map
+	if !value.Type().IsObjectType() && !value.Type().IsMapType() {
+		return nil, fmt.Errorf("headers must be an object/map, got %s", value.Type().FriendlyName())
+	}
+
+	headers := make(map[string]string)
+	for key, val := range value.AsValueMap() {
+		if !val.Type().Equals(cty.String) {
+			return nil, fmt.Errorf("header %q must be a string, got %s", key, val.Type().FriendlyName())
+		}
+		headers[key] = val.AsString()
+	}
+
+	return headers, nil
 }
 
 // evaluateString evaluates an HCL expression string

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/norncorp/loki/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -23,14 +24,19 @@ func init() {
 }
 
 func runValidate(cmd *cobra.Command, args []string) error {
-	// Check if config file exists
 	if _, err := os.Stat(validateConfigPath); os.IsNotExist(err) {
 		return fmt.Errorf("configuration file not found: %s", validateConfigPath)
 	}
 
-	// TODO: Implement config validation
-	fmt.Printf("Validating configuration file: %s\n", validateConfigPath)
-	fmt.Println("Validation functionality will be implemented in Phase 2")
+	cfg, err := config.ParseFile(validateConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to parse config: %w", err)
+	}
 
+	if err := config.Validate(cfg); err != nil {
+		return fmt.Errorf("invalid config: %w", err)
+	}
+
+	fmt.Printf("Configuration file %s is valid.\n", validateConfigPath)
 	return nil
 }

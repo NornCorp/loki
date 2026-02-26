@@ -95,11 +95,9 @@ func TestHTTPService_ServeHTTP(t *testing.T) {
 				Name:  "hello",
 				Route: "GET /hello",
 				Response: &config.ResponseConfig{
-					Status:   &status,
-					BodyExpr: makeExpr(`jsonencode({ message = "Hello from Loki!" })`),
-					Headers: map[string]string{
-						"X-Custom-Header": "test-value",
-					},
+					Status:      &status,
+					BodyExpr:    makeExpr(`jsonencode({ message = "Hello from Loki!" })`),
+					HeadersExpr: makeExpr(`{ "X-Custom-Header" = "test-value" }`),
 				},
 			},
 			{

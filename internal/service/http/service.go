@@ -33,6 +33,7 @@ type HTTPService struct {
 	errorInjector    *service.ErrorInjector
 	mux              *http.ServeMux
 	allConfigs       []*config.ServiceConfig // All services for meta API
+	requestLogger    *RequestLogger          // Request log ring buffer
 }
 
 // NewHTTPService creates a new HTTP service
@@ -113,8 +114,22 @@ func NewHTTPService(cfg *config.ServiceConfig) (*HTTPService, error) {
 			}
 
 			headers := make(map[string]string)
-			if errCfg.Response != nil {
-				headers = errCfg.Response.Headers
+			if errCfg.Response != nil && errCfg.Response.HeadersExpr != nil {
+				// Create a minimal eval context with just functions (no request)
+				headersEvalCtx := &hcl.EvalContext{
+					Functions: config.Functions(),
+				}
+				// Evaluate headers expression
+				headersVal, diags := errCfg.Response.HeadersExpr.Value(headersEvalCtx)
+				if diags.HasErrors() {
+					return nil, fmt.Errorf("failed to evaluate error %q headers: %s", errCfg.Name, diags.Error())
+				}
+				// Convert to map[string]string (check for null first)
+				if !headersVal.IsNull() {
+					for key, val := range headersVal.AsValueMap() {
+						headers[key] = val.AsString()
+					}
+				}
 			}
 
 			errorConfigs = append(errorConfigs, &service.ErrorConfig{
@@ -136,6 +151,7 @@ func NewHTTPService(cfg *config.ServiceConfig) (*HTTPService, error) {
 		resourceHandlers: resourceHandlers,
 		latencyInjector:  latencyInjector,
 		errorInjector:    errorInjector,
+		requestLogger:    NewRequestLogger(1000), // Store last 1000 requests
 	}
 
 	return svc, nil
@@ -158,15 +174,12 @@ func (s *HTTPService) Address() string {
 
 // Upstreams returns the list of upstream service dependencies
 func (s *HTTPService) Upstreams() []string {
-	if s.config.Upstreams == nil {
-		return []string{}
-	}
-	return s.config.Upstreams
+	return s.config.InferredUpstreams
 }
 
 // ConfigureMetaService sets up the meta service RPC handler
-func (s *HTTPService) ConfigureMetaService(allConfigs []*config.ServiceConfig, serfClient *serf.Client) {
-	metaSvc := meta.NewMetaService(allConfigs, serfClient)
+func (s *HTTPService) ConfigureMetaService(allConfigs []*config.ServiceConfig, serfClient *serf.Client, logProvider meta.RequestLogProvider) {
+	metaSvc := meta.NewMetaService(allConfigs, serfClient, logProvider)
 	path, handler := metaapiconnect.NewLokiMetaServiceHandler(metaSvc)
 
 	// Create mux if not exists
@@ -180,6 +193,11 @@ func (s *HTTPService) ConfigureMetaService(allConfigs []*config.ServiceConfig, s
 
 	s.allConfigs = allConfigs
 	log.Printf("Meta service registered at path: %s", path)
+}
+
+// GetRequestLogger returns the service's request logger for registration
+func (s *HTTPService) GetRequestLogger() interface{} {
+	return s.requestLogger
 }
 
 // Start starts the HTTP server
@@ -228,14 +246,21 @@ func (s *HTTPService) Stop(ctx context.Context) error {
 
 // ServeHTTP handles incoming HTTP requests
 func (s *HTTPService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+
+	// Wrap response writer to capture status code
+	wrapped := &responseWriter{ResponseWriter: w, status: http.StatusOK}
+
 	// Add CORS headers for browser access
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	wrapped.Header().Set("Access-Control-Allow-Origin", "*")
+	wrapped.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+	wrapped.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
 	// Handle preflight requests
 	if r.Method == "OPTIONS" {
-		w.WriteHeader(http.StatusOK)
+		wrapped.WriteHeader(http.StatusOK)
+		// Log the OPTIONS request
+		s.requestLogger.Log(r.Method, r.URL.Path, wrapped.status, time.Since(start), getLogLevel(r.URL.Path, wrapped.status))
 		return
 	}
 
@@ -243,20 +268,9 @@ func (s *HTTPService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if s.mux != nil {
 		_, pattern := s.mux.Handler(r)
 		if pattern != "" {
-			s.mux.ServeHTTP(w, r)
-			return
-		}
-	}
-
-	// Apply latency injection if configured
-	if s.latencyInjector != nil {
-		s.latencyInjector.Inject(r.Context())
-	}
-
-	// Apply error injection if configured
-	if s.errorInjector != nil {
-		if errCfg := s.errorInjector.ShouldInject(); errCfg != nil {
-			s.errorInjector.WriteError(w, errCfg)
+			s.mux.ServeHTTP(wrapped, r)
+			// Log the request with appropriate level based on status
+			s.requestLogger.Log(r.Method, r.URL.Path, wrapped.status, time.Since(start), getLogLevel(r.URL.Path, wrapped.status))
 			return
 		}
 	}
@@ -264,7 +278,9 @@ func (s *HTTPService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// First, check if any resource handler matches
 	for _, rh := range s.resourceHandlers {
 		if rh.Match(r.Method, r.URL.Path) {
-			rh.Handle(w, r)
+			rh.Handle(wrapped, r)
+			// Log the request
+			s.requestLogger.Log(r.Method, r.URL.Path, wrapped.status, time.Since(start), getLogLevel(r.URL.Path, wrapped.status))
 			return
 		}
 	}
@@ -273,14 +289,63 @@ func (s *HTTPService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	route, ok := s.router.Match(r)
 	if !ok {
 		// No matching route - return 404
-		w.WriteHeader(http.StatusNotFound)
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"error":"not found"}`))
+		wrapped.WriteHeader(http.StatusNotFound)
+		wrapped.Header().Set("Content-Type", "application/json")
+		wrapped.Write([]byte(`{"error":"not found"}`))
+		// Log the 404
+		s.requestLogger.Log(r.Method, r.URL.Path, wrapped.status, time.Since(start), getLogLevel(r.URL.Path, wrapped.status))
 		return
 	}
 
 	// Handle the request with the matched route
-	s.handleRequest(w, r, route)
+	s.handleRequest(wrapped, r, route)
+
+	// Log the request
+	s.requestLogger.Log(r.Method, r.URL.Path, wrapped.status, time.Since(start), getLogLevel(r.URL.Path, wrapped.status))
+}
+
+// convertErrorConfigs converts config.ErrorConfig to service.ErrorConfig
+func convertErrorConfigs(errorCfgs []*config.ErrorConfig) ([]*service.ErrorConfig, error) {
+	result := make([]*service.ErrorConfig, 0, len(errorCfgs))
+	for _, errCfg := range errorCfgs {
+		// Evaluate error response body if present
+		var bodyStr string
+		if errCfg.Response != nil && errCfg.Response.BodyExpr != nil {
+			evalCtx := &hcl.EvalContext{
+				Functions: config.Functions(),
+			}
+			value, diags := errCfg.Response.BodyExpr.Value(evalCtx)
+			if diags.HasErrors() {
+				return nil, fmt.Errorf("failed to evaluate error %q body: %s", errCfg.Name, diags.Error())
+			}
+			bodyStr = value.AsString()
+		}
+
+		headers := make(map[string]string)
+		if errCfg.Response != nil && errCfg.Response.HeadersExpr != nil {
+			headersEvalCtx := &hcl.EvalContext{
+				Functions: config.Functions(),
+			}
+			headersVal, diags := errCfg.Response.HeadersExpr.Value(headersEvalCtx)
+			if diags.HasErrors() {
+				return nil, fmt.Errorf("failed to evaluate error %q headers: %s", errCfg.Name, diags.Error())
+			}
+			if !headersVal.IsNull() {
+				for key, val := range headersVal.AsValueMap() {
+					headers[key] = val.AsString()
+				}
+			}
+		}
+
+		result = append(result, &service.ErrorConfig{
+			Name:    errCfg.Name,
+			Rate:    errCfg.Rate,
+			Status:  errCfg.Status,
+			Headers: headers,
+			Body:    bodyStr,
+		})
+	}
+	return result, nil
 }
 
 // handleRequest handles a matched request
@@ -292,9 +357,60 @@ func (s *HTTPService) handleRequest(w http.ResponseWriter, r *http.Request, rout
 		return
 	}
 
+	// Apply latency injection (handler-level overrides service-level)
+	if handler.Timing != nil {
+		// Handler has its own timing config - parse and create injector for it
+		p50, err := service.ParseDuration(handler.Timing.P50)
+		if err != nil {
+			log.Printf("Error parsing handler timing.p50: %v", err)
+		} else {
+			p90, err := service.ParseDuration(handler.Timing.P90)
+			if err != nil {
+				log.Printf("Error parsing handler timing.p90: %v", err)
+			} else {
+				p99, err := service.ParseDuration(handler.Timing.P99)
+				if err != nil {
+					log.Printf("Error parsing handler timing.p99: %v", err)
+				} else {
+					handlerLatency := service.NewLatencyInjector(service.TimingConfig{
+						P50:      p50,
+						P90:      p90,
+						P99:      p99,
+						Variance: handler.Timing.Variance,
+					})
+					handlerLatency.Inject(r.Context())
+				}
+			}
+		}
+	} else if s.latencyInjector != nil {
+		// Use service-level timing
+		s.latencyInjector.Inject(r.Context())
+	}
+
+	// Apply error injection (handler-level overrides service-level)
+	if len(handler.Errors) > 0 {
+		// Handler has its own error configs - convert and create injector for them
+		errorConfigs, err := convertErrorConfigs(handler.Errors)
+		if err != nil {
+			log.Printf("Error converting handler error configs: %v", err)
+		} else {
+			handlerErrors := service.NewErrorInjector(errorConfigs)
+			if errCfg := handlerErrors.ShouldInject(); errCfg != nil {
+				handlerErrors.WriteError(w, errCfg)
+				return
+			}
+		}
+	} else if s.errorInjector != nil {
+		// Use service-level errors
+		if errCfg := s.errorInjector.ShouldInject(); errCfg != nil {
+			s.errorInjector.WriteError(w, errCfg)
+			return
+		}
+	}
+
 	// Build evaluation context from request
 	// For now, we don't extract path params (future enhancement)
-	evalCtx := config.BuildEvalContext(r, nil)
+	evalCtx := config.BuildEvalContext(r, nil, s.config.ServiceVars)
 
 	// Execute steps if present
 	if len(handler.Steps) > 0 {
@@ -332,9 +448,22 @@ func (s *HTTPService) handleRequest(w http.ResponseWriter, r *http.Request, rout
 		status = *resp.Status
 	}
 
-	// Set headers
-	for key, value := range resp.Headers {
-		w.Header().Set(key, value)
+	// Evaluate and set headers
+	if resp.HeadersExpr != nil {
+		headersVal, diags := resp.HeadersExpr.Value(evalCtx)
+		if diags.HasErrors() {
+			log.Printf("Error evaluating response headers: %v", diags.Error())
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(fmt.Sprintf(`{"error":"header evaluation failed: %s"}`, diags.Error())))
+			return
+		}
+		// Convert to map and set headers (check for null first)
+		if !headersVal.IsNull() {
+			for key, val := range headersVal.AsValueMap() {
+				w.Header().Set(key, val.AsString())
+			}
+		}
 	}
 
 	// Set content-type if not already set and body contains JSON
@@ -347,6 +476,28 @@ func (s *HTTPService) handleRequest(w http.ResponseWriter, r *http.Request, rout
 	if bodyStr != "" {
 		w.Write([]byte(bodyStr))
 	}
+}
+
+// isMetaServicePath checks if a path is a meta service internal call
+func isMetaServicePath(path string) bool {
+	return len(path) >= 6 && path[:6] == "/meta."
+}
+
+// getLogLevel determines the log level based on HTTP status code and request path
+func getLogLevel(path string, status int) string {
+	// Meta service calls are debug level
+	if isMetaServicePath(path) {
+		return "debug"
+	}
+
+	// Classify by HTTP status code
+	if status >= 500 {
+		return "error" // 5xx server errors
+	}
+	if status >= 400 {
+		return "warn" // 4xx client errors
+	}
+	return "info" // 2xx, 3xx success/redirect
 }
 
 // init registers the HTTP service factory

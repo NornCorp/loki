@@ -13,8 +13,9 @@ import (
 // - request.params - path parameters
 // - request.query - query parameters
 // - request.body - parsed request body
+// - service.<name> - service reference variables (address, host, port, type, url)
 // - step.<name> - results from executed steps (added by executor)
-func BuildEvalContext(r *http.Request, pathParams map[string]string) *hcl.EvalContext {
+func BuildEvalContext(r *http.Request, pathParams map[string]string, serviceVars map[string]cty.Value) *hcl.EvalContext {
 	ctx := &hcl.EvalContext{
 		Variables: make(map[string]cty.Value),
 		Functions: Functions(),
@@ -58,6 +59,41 @@ func BuildEvalContext(r *http.Request, pathParams map[string]string) *hcl.EvalCo
 	requestVars["path"] = cty.StringVal(r.URL.Path)
 
 	ctx.Variables["request"] = cty.ObjectVal(requestVars)
+
+	// Add service variables if available
+	if len(serviceVars) > 0 {
+		ctx.Variables["service"] = cty.ObjectVal(serviceVars)
+	}
+
+	// Initialize empty step object (will be populated by executor)
+	ctx.Variables["step"] = cty.EmptyObjectVal
+
+	return ctx
+}
+
+// BuildEvalContextFromMap creates an HCL evaluation context from a map (for RPC requests)
+// The context includes:
+// - request.<field> - all fields from the request map
+// - service.<name> - service reference variables (address, host, port, type, url)
+// - step.<name> - results from executed steps (added by executor)
+func BuildEvalContextFromMap(reqMap map[string]any, serviceVars map[string]cty.Value) *hcl.EvalContext {
+	ctx := &hcl.EvalContext{
+		Variables: make(map[string]cty.Value),
+		Functions: Functions(),
+	}
+
+	// Build request context from map
+	requestVars := make(map[string]cty.Value)
+	for k, v := range reqMap {
+		requestVars[k] = interfaceToCty(v)
+	}
+
+	ctx.Variables["request"] = cty.ObjectVal(requestVars)
+
+	// Add service variables if available
+	if len(serviceVars) > 0 {
+		ctx.Variables["service"] = cty.ObjectVal(serviceVars)
+	}
 
 	// Initialize empty step object (will be populated by executor)
 	ctx.Variables["step"] = cty.EmptyObjectVal

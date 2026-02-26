@@ -21,18 +21,36 @@ type SerfClient interface {
 	Members() []serf.Member
 }
 
+// RequestLog represents a captured HTTP request log
+type RequestLog struct {
+	Sequence   uint64
+	Timestamp  int64 // Unix milliseconds
+	Method     string
+	Path       string
+	Status     int32
+	DurationMs int64
+	Level      string // "info" or "debug"
+}
+
+// RequestLogProvider provides access to request logs for a service
+type RequestLogProvider interface {
+	GetLogs(serviceName string, afterSequence uint64, limit int32) ([]RequestLog, uint64)
+}
+
 // MetaService implements the LokiMetaService RPC
 type MetaService struct {
-	services   []*config.ServiceConfig
-	nodeName   string
-	serfClient SerfClient
+	services        []*config.ServiceConfig
+	nodeName        string
+	serfClient      SerfClient
+	requestLogProvider RequestLogProvider
 }
 
 // NewMetaService creates a new MetaService
-func NewMetaService(services []*config.ServiceConfig, serfClient SerfClient) *MetaService {
+func NewMetaService(services []*config.ServiceConfig, serfClient SerfClient, logProvider RequestLogProvider) *MetaService {
 	return &MetaService{
-		services:   services,
-		serfClient: serfClient,
+		services:           services,
+		serfClient:         serfClient,
+		requestLogProvider: logProvider,
 	}
 }
 
@@ -196,6 +214,162 @@ func (s *MetaService) forwardRequest(
 
 	// Parse and return response
 	var response metav1.GetResourcesResponse
+	if err := json.NewDecoder(httpResp.Body).Decode(&response); err != nil {
+		return nil, connect.NewError(connect.CodeInternal,
+			fmt.Errorf("failed to parse response from next hop: %w", err))
+	}
+
+	return connect.NewResponse(&response), nil
+}
+
+// GetRequestLogs returns recent HTTP request logs for a service
+func (s *MetaService) GetRequestLogs(
+	ctx context.Context,
+	req *connect.Request[metav1.GetRequestLogsRequest],
+) (*connect.Response[metav1.GetRequestLogsResponse], error) {
+	// Check if we need to forward this request
+	if len(req.Msg.Path) > 0 {
+		return s.forwardRequestLogs(ctx, req)
+	}
+
+	// Get logs from the request log provider
+	if s.requestLogProvider == nil {
+		return connect.NewResponse(&metav1.GetRequestLogsResponse{
+			Logs:           []*metav1.RequestLog{},
+			LatestSequence: 0,
+		}), nil
+	}
+
+	// Default limit
+	limit := req.Msg.Limit
+	if limit <= 0 {
+		limit = 100
+	}
+
+	logs, latestSeq := s.requestLogProvider.GetLogs(
+		req.Msg.ServiceName,
+		req.Msg.AfterSequence,
+		limit,
+	)
+
+	// Convert to proto format
+	protoLogs := make([]*metav1.RequestLog, 0, len(logs))
+	for _, log := range logs {
+		protoLogs = append(protoLogs, &metav1.RequestLog{
+			Sequence:   log.Sequence,
+			Timestamp:  log.Timestamp,
+			Method:     log.Method,
+			Path:       log.Path,
+			Status:     log.Status,
+			DurationMs: log.DurationMs,
+			Level:      log.Level,
+		})
+	}
+
+	resp := &metav1.GetRequestLogsResponse{
+		Logs:           protoLogs,
+		LatestSequence: latestSeq,
+	}
+
+	return connect.NewResponse(resp), nil
+}
+
+// forwardRequestLogs forwards the GetRequestLogs request to the next hop in the path
+func (s *MetaService) forwardRequestLogs(
+	ctx context.Context,
+	req *connect.Request[metav1.GetRequestLogsRequest],
+) (*connect.Response[metav1.GetRequestLogsResponse], error) {
+	nextHop := int(req.Msg.CurrentHop) + 1
+
+	// Are we the destination?
+	if nextHop >= len(req.Msg.Path) {
+		// We're the final destination, handle locally
+		localReq := connect.NewRequest(&metav1.GetRequestLogsRequest{
+			ServiceName:   req.Msg.ServiceName,
+			AfterSequence: req.Msg.AfterSequence,
+			Limit:         req.Msg.Limit,
+			// No path = handle locally
+		})
+		return s.GetRequestLogs(ctx, localReq)
+	}
+
+	// Forward to next node in path
+	nextNodeName := req.Msg.Path[nextHop]
+
+	// Look up the next hop's address from Serf
+	if s.serfClient == nil {
+		return nil, connect.NewError(connect.CodeInternal,
+			fmt.Errorf("cannot forward requests in standalone mode"))
+	}
+
+	var nextServiceAddr string
+	members := s.serfClient.Members()
+	for _, member := range members {
+		if member.Name == nextNodeName {
+			// Find an HTTP service on this node from the "services" tag
+			if servicesJSON, ok := member.Tags["services"]; ok {
+				var serviceInfos []struct {
+					Name    string `json:"name"`
+					Type    string `json:"type"`
+					Address string `json:"address"`
+				}
+				if err := json.Unmarshal([]byte(servicesJSON), &serviceInfos); err != nil {
+					continue
+				}
+				// Find first HTTP service
+				for _, info := range serviceInfos {
+					if info.Type == "http" {
+						nextServiceAddr = info.Address
+						break
+					}
+				}
+			}
+			break
+		}
+	}
+
+	if nextServiceAddr == "" {
+		return nil, connect.NewError(connect.CodeInternal,
+			fmt.Errorf("cannot find service address for node %q", nextNodeName))
+	}
+
+	// Build forwarding request
+	forwardURL := fmt.Sprintf("http://%s/meta.v1.LokiMetaService/GetRequestLogs", nextServiceAddr)
+	forwardReq := map[string]any{
+		"serviceName":   req.Msg.ServiceName,
+		"afterSequence": req.Msg.AfterSequence,
+		"limit":         req.Msg.Limit,
+		"path":          req.Msg.Path,
+		"currentHop":    nextHop,
+	}
+
+	reqJSON, err := json.Marshal(forwardReq)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// Make HTTP request to next hop
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", forwardURL, bytes.NewReader(reqJSON))
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	httpResp, err := http.DefaultClient.Do(httpReq)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnavailable,
+			fmt.Errorf("failed to forward to next hop: %w", err))
+	}
+	defer httpResp.Body.Close()
+
+	if httpResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(httpResp.Body)
+		return nil, connect.NewError(connect.CodeInternal,
+			fmt.Errorf("next hop returned status %d: %s", httpResp.StatusCode, string(body)))
+	}
+
+	// Parse and return response
+	var response metav1.GetRequestLogsResponse
 	if err := json.NewDecoder(httpResp.Body).Decode(&response); err != nil {
 		return nil, connect.NewError(connect.CodeInternal,
 			fmt.Errorf("failed to parse response from next hop: %w", err))

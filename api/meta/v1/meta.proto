@@ -12,6 +12,9 @@ option go_package = "github.com/norncorp/loki/pkg/api/meta/v1;metaapi";
 service LokiMetaService {
   // GetResources returns resource schemas for all services on this node
   rpc GetResources(GetResourcesRequest) returns (GetResourcesResponse) {}
+
+  // GetRequestLogs returns recent HTTP request logs for a service
+  rpc GetRequestLogs(GetRequestLogsRequest) returns (GetRequestLogsResponse) {}
 }
 
 // GetResourcesRequest requests resource metadata
@@ -52,4 +55,39 @@ message Field {
   repeated string values = 3; // Enum values (if type is enum)
   optional double min = 4;   // Min value (for numeric types)
   optional double max = 5;   // Max value (for numeric types)
+}
+
+// GetRequestLogsRequest requests recent request logs
+message GetRequestLogsRequest {
+  // Service name to get logs for
+  string service_name = 1;
+
+  // Return logs with sequence > after_sequence (0 = all logs)
+  uint64 after_sequence = 2;
+
+  // Maximum number of logs to return (default: 100)
+  int32 limit = 3;
+
+  // RPC forwarding path (for multi-hop routing)
+  repeated string path = 4;
+
+  // Current position in the path
+  int32 current_hop = 5;
+}
+
+// GetRequestLogsResponse contains request logs
+message GetRequestLogsResponse {
+  repeated RequestLog logs = 1;
+  uint64 latest_sequence = 2; // Most recent sequence number
+}
+
+// RequestLog represents a single HTTP request
+message RequestLog {
+  uint64 sequence = 1;        // Monotonically increasing sequence number
+  int64 timestamp = 2;        // Unix timestamp in milliseconds
+  string method = 3;          // HTTP method (GET, POST, etc.)
+  string path = 4;            // Request path
+  int32 status = 5;           // HTTP status code
+  int64 duration_ms = 6;      // Request duration in milliseconds
+  string level = 7;           // Log level: "debug", "info", "warn", or "error"
 }

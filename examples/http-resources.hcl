@@ -1,3 +1,17 @@
+# HTTP Resources Example
+# Resource CRUD auto-generation with fake data.
+#
+# Usage:
+#   loki server -c examples/http-resources.hcl
+#
+# Auto-generated endpoints:
+#   GET    /users        - List all users
+#   GET    /users/:id    - Get a user by ID
+#   POST   /users        - Create a user
+#   PUT    /users/:id    - Update a user
+#   DELETE /users/:id    - Delete a user
+#   GET    /health       - Health check
+
 service "api" {
   type   = "http"
   listen = "0.0.0.0:8080"
