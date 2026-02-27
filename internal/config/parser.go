@@ -210,6 +210,62 @@ var validServiceTypes = map[string]bool{
 	"postgres": true,
 }
 
+// ValidateCLI checks CLI configuration for errors
+func ValidateCLI(cfg *Config) error {
+	if cfg == nil {
+		return fmt.Errorf("config is nil")
+	}
+	if cfg.CLI == nil {
+		return fmt.Errorf("no cli block found in config")
+	}
+
+	cli := cfg.CLI
+	if cli.Name == "" {
+		return fmt.Errorf("cli: name is required")
+	}
+
+	for i, cmd := range cli.Commands {
+		if err := validateCLICommand(cmd, fmt.Sprintf("cli.command[%d]", i)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// validateCLICommand recursively validates a CLI command config
+func validateCLICommand(cmd *CLICommandConfig, path string) error {
+	if cmd.Name == "" {
+		return fmt.Errorf("%s: name is required", path)
+	}
+
+	// A command with an action cannot have subcommands
+	if cmd.Action != nil && len(cmd.Commands) > 0 {
+		return fmt.Errorf("%s %q: cannot have both action and subcommands", path, cmd.Name)
+	}
+
+	// Validate action steps
+	if cmd.Action != nil {
+		for j, step := range cmd.Action.Steps {
+			if step.Name == "" {
+				return fmt.Errorf("%s %q action step[%d]: name is required", path, cmd.Name, j)
+			}
+			if step.HTTP == nil {
+				return fmt.Errorf("%s %q action step %q: must have an http block", path, cmd.Name, step.Name)
+			}
+		}
+	}
+
+	// Validate subcommands
+	for i, sub := range cmd.Commands {
+		if err := validateCLICommand(sub, fmt.Sprintf("%s %q command[%d]", path, cmd.Name, i)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // Validate checks the configuration for errors
 func Validate(cfg *Config) error {
 	if cfg == nil {

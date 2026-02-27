@@ -9,6 +9,7 @@ import (
 type Config struct {
 	Heimdall *HeimdallConfig `hcl:"heimdall,block"`
 	Services []*ServiceConfig `hcl:"service,block"`
+	CLI      *CLIConfig       `hcl:"cli,block"`
 	Body     hcl.Body         `hcl:",remain"`
 }
 
@@ -176,5 +177,59 @@ type QueryConfig struct {
 	FromTable string   `hcl:"from_table,optional"`
 	Where     string   `hcl:"where,optional"`
 	Body      hcl.Body `hcl:",remain"`
+}
+
+// CLIConfig defines a CLI tool to generate from HCL
+type CLIConfig struct {
+	Name        string              `hcl:"name,label"`
+	Description string              `hcl:"description,optional"`
+	Flags       []*CLIFlagConfig    `hcl:"flag,block"`
+	Commands    []*CLICommandConfig `hcl:"command,block"`
+	Body        hcl.Body            `hcl:",remain"`
+}
+
+// CLIFlagConfig defines a CLI flag
+type CLIFlagConfig struct {
+	Name        string   `hcl:"name,label"`
+	Short       string   `hcl:"short,optional"`
+	Default     string   `hcl:"default,optional"`
+	Env         string   `hcl:"env,optional"`
+	Description string   `hcl:"description,optional"`
+	Required    bool     `hcl:"required,optional"`
+	Body        hcl.Body `hcl:",remain"`
+}
+
+// CLICommandConfig defines a CLI command (can be nested)
+type CLICommandConfig struct {
+	Name        string              `hcl:"name,label"`
+	Description string              `hcl:"description,optional"`
+	Commands    []*CLICommandConfig `hcl:"command,block"`
+	Flags       []*CLIFlagConfig    `hcl:"flag,block"`
+	Args        []*CLIArgConfig     `hcl:"arg,block"`
+	Action      *CLIActionConfig    `hcl:"action,block"`
+	Body        hcl.Body            `hcl:",remain"`
+}
+
+// CLIArgConfig defines a CLI positional argument
+type CLIArgConfig struct {
+	Name        string   `hcl:"name,label"`
+	Required    bool     `hcl:"required,optional"`
+	Description string   `hcl:"description,optional"`
+	Body        hcl.Body `hcl:",remain"`
+}
+
+// CLIActionConfig defines the action a CLI command executes
+type CLIActionConfig struct {
+	Steps  []*StepConfig    `hcl:"step,block"`
+	Output *CLIOutputConfig `hcl:"output,block"`
+	Body   hcl.Body         `hcl:",remain"`
+}
+
+// CLIOutputConfig defines how a CLI command formats its output
+type CLIOutputConfig struct {
+	Format   string         `hcl:"format,optional"` // json, table, text
+	DataExpr hcl.Expression `hcl:"data,optional"`
+	Columns  []string       `hcl:"columns,optional"` // For table format
+	Body     hcl.Body       `hcl:",remain"`
 }
 

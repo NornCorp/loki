@@ -533,9 +533,78 @@ Loki supports HCL expressions throughout the configuration:
 ## CLI
 
 ```bash
-loki server -c config.hcl      # Start services from a config file
-loki validate -c config.hcl    # Validate a config file without starting
+loki server -c config.hcl                          # Start services from a config file
+loki validate -c config.hcl                        # Validate a config file without starting
+loki cli -c cli-config.hcl -- <args>               # Run a CLI defined in an HCL config
 ```
+
+### CLI Runtime
+
+Run CLIs defined in HCL directly -- no code generation or Go toolchain required. Loki builds the command tree at runtime and executes steps using the built-in step executor.
+
+```hcl
+cli "mimir" {
+  description = "Interact with Mimir secrets engine"
+
+  flag "address" {
+    short   = "a"
+    default = "http://localhost:8200"
+    env     = "MIMIR_ADDR"
+  }
+
+  command "kv" {
+    description = "Key-value secrets engine"
+
+    command "get" {
+      description = "Read a secret"
+      arg "path" { required = true }
+
+      action {
+        step "read" {
+          http {
+            url    = "${flag.address}/v1/secret/data/${arg.path}"
+            method = "GET"
+          }
+        }
+        output {
+          format = "json"
+          data   = step.read.body.data
+        }
+      }
+    }
+  }
+
+  command "status" {
+    description = "Show server status"
+    action {
+      step "health" {
+        http {
+          url    = "${flag.address}/v1/sys/health"
+          method = "GET"
+        }
+      }
+      output {
+        format = "json"
+        data   = step.health.body
+      }
+    }
+  }
+}
+```
+
+```bash
+# Run directly
+loki cli -c examples/mimir-cli.hcl -- --help
+loki cli -c examples/mimir-cli.hcl -- kv get mysecret
+loki cli -c examples/mimir-cli.hcl -- -a http://vault:8200 status
+
+# Or alias for a seamless experience
+alias mimir='loki cli -c /path/to/mimir-cli.hcl --'
+mimir kv get mysecret
+mimir -a http://vault:8200 status
+```
+
+Expressions in CLI configs support `flag.*` for flags, `arg.*` for positional arguments, and `step.*` for accessing step results. Flags support env var defaults via the `env` field. Output formats: `json`, `table`, `text`.
 
 ## Examples
 
@@ -551,6 +620,7 @@ loki validate -c config.hcl    # Validate a config file without starting
 | [connect-rpc.hcl](examples/connect-rpc.hcl) | Connect-RPC with resources, custom methods, and steps |
 | [proxy-reverse.hcl](examples/proxy-reverse.hcl) | Reverse proxy with header transforms |
 | [https.hcl](examples/https.hcl) | HTTPS with auto-generated self-signed certificate |
+| [mimir-cli.hcl](examples/mimir-cli.hcl) | CLI runtime: fake Vault-like CLI tool |
 
 ## Project Structure
 
@@ -558,7 +628,7 @@ loki validate -c config.hcl    # Validate a config file without starting
 loki/
 ├── cmd/loki/           Entry point
 ├── internal/
-│   ├── cli/            CLI commands (server, validate)
+│   ├── cli/            CLI commands (server, validate, cli)
 │   ├── config/         HCL parsing, types, functions, expression context
 │   ├── service/
 │   │   ├── http/       HTTP service with routing
@@ -573,6 +643,7 @@ loki/
 │   ├── resource/       In-memory resource store (go-memdb)
 │   ├── fake/           Fake data generation (gofakeit)
 │   ├── step/           Service chaining execution
+│   ├── cligen/         CLI runtime interpreter
 │   ├── metrics/        Prometheus metrics
 │   ├── tracing/        OpenTelemetry tracing
 │   ├── serf/           Heimdall gossip mesh client
