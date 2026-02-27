@@ -6,8 +6,7 @@
 #   loki cli -c examples/mimir-cli.hcl -- kv list secrets
 #   loki cli -c examples/mimir-cli.hcl -- status
 
-service "mimir" {
-  type   = "http"
+service "http" "mimir" {
   listen = "0.0.0.0:8200"
 
   handle "health" {

@@ -13,8 +13,7 @@ import (
 func TestCustomMethodsFromHCL(t *testing.T) {
 	// Inline HCL with handle blocks instead of method blocks
 	hcl := `
-service "user-api" {
-  type    = "connect"
+service "connect" "user-api" {
   listen  = "0.0.0.0:8080"
   package = "api.v1"
 
@@ -79,8 +78,7 @@ service "user-api" {
 func TestMethodOverridesFromHCL(t *testing.T) {
 	// Inline HCL with handle blocks instead of method blocks
 	hcl := `
-service "user-api" {
-  type    = "connect"
+service "connect" "user-api" {
   listen  = "0.0.0.0:8080"
   package = "api.v1"
 

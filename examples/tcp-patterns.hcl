@@ -14,8 +14,7 @@
 #   UNKNOWN
 #   -ERR unknown command
 
-service "redis-like" {
-  type   = "tcp"
+service "tcp" "redis-like" {
   listen = "0.0.0.0:6379"
 
   # Pattern matching with wildcards

@@ -12,8 +12,7 @@
 #   curl http://localhost:8080/api/unreliable  # Handler-level error override (50% failure)
 #   curl http://localhost:8080/api/custom      # Both timing + error overrides
 
-service "api" {
-  type   = "http"
+service "http" "api" {
   listen = "0.0.0.0:8080"
 
   # Service-level latency injection

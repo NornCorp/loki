@@ -1,5 +1,4 @@
-service "backend" {
-  type   = "http"
+service "http" "backend" {
   listen = "127.0.0.1:8081"
 
   handle "hello" {
@@ -10,8 +9,7 @@ service "backend" {
   }
 }
 
-service "proxy" {
-  type   = "proxy"
+service "proxy" "proxy" {
   listen = "0.0.0.0:8080"
   target = service.backend.url
 }

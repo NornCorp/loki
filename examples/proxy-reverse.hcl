@@ -12,8 +12,7 @@
 #   curl http://localhost:8090/hello      # Proxied to internal backend via service ref
 
 # External reverse proxy
-service "api-proxy" {
-  type     = "proxy"
+service "proxy" "api-proxy" {
   listen   = "0.0.0.0:8080"
   target   = "http://httpbin.org"
 
@@ -52,8 +51,7 @@ service "api-proxy" {
 }
 
 # Internal backend service
-service "backend" {
-  type   = "http"
+service "http" "backend" {
   listen = "127.0.0.1:8081"
 
   handle "hello" {
@@ -65,8 +63,7 @@ service "backend" {
 }
 
 # Internal proxy using service.* reference
-service "internal-proxy" {
-  type   = "proxy"
+service "proxy" "internal-proxy" {
   listen = "0.0.0.0:8090"
   target = service.backend.url
 }

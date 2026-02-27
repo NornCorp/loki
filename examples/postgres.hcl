@@ -1,5 +1,4 @@
-service "db" {
-  type   = "postgres"
+service "postgres" "db" {
   listen = "0.0.0.0:5432"
 
   auth {

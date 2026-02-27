@@ -1,3 +1,2 @@
-service "api" {
-  type   = "http"
+service "http" "api" {
   # Missing closing brace

@@ -27,8 +27,7 @@ metrics {
   path    = "/metrics"
 }
 
-service "api" {
-  type   = "http"
+service "http" "api" {
   listen = "0.0.0.0:8080"
 
   logging {
@@ -45,8 +44,7 @@ service "api" {
   }
 }
 
-service "worker" {
-  type   = "http"
+service "http" "worker" {
   listen = "0.0.0.0:8081"
 
   logging {

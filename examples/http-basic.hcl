@@ -8,8 +8,7 @@
 #   curl http://localhost:8080/hello
 #   curl http://localhost:8080/health
 
-service "api" {
-  type   = "http"
+service "http" "api" {
   listen = "0.0.0.0:8080"
 
   handle "hello" {

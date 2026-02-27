@@ -10,8 +10,7 @@
 #   grpcurl -plaintext -d '{}' localhost:8080 api.v1.UserService/SearchUsers
 #   grpcurl -plaintext -d '{"user_id":"abc"}' localhost:8080 api.v1.UserService/GetUserWithDetails
 
-service "user-api" {
-  type    = "connect"
+service "connect" "user-api" {
   listen  = "0.0.0.0:8080"
   package = "api.v1"
 

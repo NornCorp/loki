@@ -13,8 +13,7 @@ heimdall {
 }
 
 # User Service (upstream)
-service "user-service" {
-  type   = "http"
+service "http" "user-service" {
   listen = "127.0.0.1:8081"
 
   resource "user" {
@@ -26,8 +25,7 @@ service "user-service" {
 }
 
 # Order Service (upstream)
-service "order-service" {
-  type   = "http"
+service "http" "order-service" {
   listen = "127.0.0.1:8082"
 
   resource "order" {
@@ -44,8 +42,7 @@ service "order-service" {
 }
 
 # API Gateway (frontend) - aggregates upstream responses
-service "api-gateway" {
-  type   = "http"
+service "http" "api-gateway" {
   listen = "0.0.0.0:8080"
 
   handle "dashboard" {

@@ -49,8 +49,8 @@ type MetricsConfig struct {
 
 // ServiceConfig defines a service instance
 type ServiceConfig struct {
+	Type            string             `hcl:"type,label"`
 	Name            string             `hcl:"name,label"`
-	Type            string             `hcl:"type"`
 	Listen          string             `hcl:"listen"`
 	Package         string             `hcl:"package,optional"`          // For Connect-RPC service
 	TargetExpr      hcl.Expression     `hcl:"target,optional"`           // For proxy service (expression for service refs)

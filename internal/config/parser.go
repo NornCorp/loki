@@ -81,20 +81,15 @@ func extractServiceVars(body hcl.Body) (map[string]cty.Value, error) {
 	serviceVars := make(map[string]cty.Value)
 
 	for _, block := range syntaxBody.Blocks {
-		if block.Type != "service" || len(block.Labels) < 1 {
+		if block.Type != "service" || len(block.Labels) < 2 {
 			continue
 		}
 
-		name := block.Labels[0]
+		serviceType := block.Labels[0]
+		name := block.Labels[1]
 
-		var serviceType, listen string
+		var listen string
 		for attrName, attr := range block.Body.Attributes {
-			if attrName == "type" {
-				val, diags := attr.Expr.Value(minCtx)
-				if !diags.HasErrors() && val.Type() == cty.String {
-					serviceType = val.AsString()
-				}
-			}
 			if attrName == "listen" {
 				val, diags := attr.Expr.Value(minCtx)
 				if !diags.HasErrors() && val.Type() == cty.String {
@@ -356,9 +351,6 @@ func Validate(cfg *Config) error {
 	for i, svc := range cfg.Services {
 		if svc.Name == "" {
 			return fmt.Errorf("service %d: name is required", i)
-		}
-		if svc.Type == "" {
-			return fmt.Errorf("service %q: type is required", svc.Name)
 		}
 		if svc.Listen == "" {
 			return fmt.Errorf("service %q: listen address is required", svc.Name)

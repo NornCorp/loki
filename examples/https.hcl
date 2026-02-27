@@ -1,6 +1,5 @@
 # HTTPS service with auto-generated self-signed certificate
-service "secure-api" {
-  type   = "http"
+service "http" "secure-api" {
   listen = "0.0.0.0:8443"
 
   tls {}  # auto-generates a self-signed certificate
@@ -22,8 +21,7 @@ service "secure-api" {
 
 # To use with provided certificates:
 #
-# service "api" {
-#   type   = "http"
+# service "http" "api" {
 #   listen = "0.0.0.0:8443"
 #
 #   tls {

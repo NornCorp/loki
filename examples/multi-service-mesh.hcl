@@ -17,8 +17,7 @@ heimdall {
 }
 
 # Product Catalog Service
-service "product-service" {
-  type   = "http"
+service "http" "product-service" {
   listen = "127.0.0.1:8083"
 
   resource "product" {
@@ -50,8 +49,7 @@ service "product-service" {
 }
 
 # User Service
-service "user-service" {
-  type   = "http"
+service "http" "user-service" {
   listen = "127.0.0.1:8081"
 
   timing {
@@ -89,8 +87,7 @@ service "user-service" {
 }
 
 # Order Service
-service "order-service" {
-  type   = "http"
+service "http" "order-service" {
   listen = "127.0.0.1:8082"
 
   timing {
@@ -132,8 +129,7 @@ service "order-service" {
 }
 
 # Analytics Service
-service "analytics-service" {
-  type   = "http"
+service "http" "analytics-service" {
   listen = "127.0.0.1:8084"
 
   timing {
@@ -162,8 +158,7 @@ service "analytics-service" {
 }
 
 # API Gateway - Frontend service
-service "api-gateway" {
-  type   = "http"
+service "http" "api-gateway" {
   listen = "0.0.0.0:8080"
 
   timing {

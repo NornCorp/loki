@@ -149,21 +149,6 @@ func TestValidate_NilConfig(t *testing.T) {
 	require.Contains(t, err.Error(), "config is nil")
 }
 
-func TestValidate_MissingType(t *testing.T) {
-	cfg := &Config{
-		Services: []*ServiceConfig{
-			{
-				Name:   "api",
-				Listen: "0.0.0.0:8080",
-			},
-		},
-	}
-
-	err := Validate(cfg)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "type is required")
-}
-
 func TestValidate_MissingListen(t *testing.T) {
 	cfg := &Config{
 		Services: []*ServiceConfig{
@@ -181,8 +166,7 @@ func TestValidate_MissingListen(t *testing.T) {
 
 func TestParse_FromBytes(t *testing.T) {
 	src := []byte(`
-service "test" {
-  type   = "http"
+service "http" "test" {
   listen = "0.0.0.0:9000"
 }
 `)
@@ -221,8 +205,7 @@ func TestFunctions_Jsonencode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			src := []byte(`
-service "test" {
-  type   = "http"
+service "http" "test" {
   listen = "0.0.0.0:8080"
 
   handle "test" {
@@ -288,8 +271,7 @@ func TestParse_ServiceReferences(t *testing.T) {
 
 func TestParse_ServiceReferences_UnknownService(t *testing.T) {
 	src := []byte(`
-service "proxy" {
-  type   = "proxy"
+service "proxy" "proxy" {
   listen = "0.0.0.0:8080"
   target = service.nonexistent.url
 }
@@ -336,8 +318,7 @@ func TestParse_InferUpstreams_Proxy(t *testing.T) {
 
 func TestParse_ServiceVars_AllAttributes(t *testing.T) {
 	src := []byte(`
-service "my-api" {
-  type   = "http"
+service "http" "my-api" {
   listen = "10.0.0.1:9090"
 }
 `)
@@ -396,8 +377,7 @@ func TestValidate_ConnectRequiresPackage(t *testing.T) {
 func TestValidate_TargetOnlyForProxy(t *testing.T) {
 	// Parse a real HCL config to get a non-nil TargetExpr on an http service
 	src := []byte(`
-service "api" {
-  type   = "http"
+service "http" "api" {
   listen = "0.0.0.0:8080"
   target = "http://example.com"
 }
@@ -412,8 +392,7 @@ service "api" {
 
 func TestValidate_RequestHeadersOnlyForProxy(t *testing.T) {
 	src := []byte(`
-service "api" {
-  type             = "http"
+service "http" "api" {
   listen           = "0.0.0.0:8080"
   request_headers  = { "X-Test" = "val" }
 }
@@ -428,8 +407,7 @@ service "api" {
 
 func TestValidate_ResponseHeadersOnlyForProxy(t *testing.T) {
 	src := []byte(`
-service "api" {
-  type              = "http"
+service "http" "api" {
   listen            = "0.0.0.0:8080"
   response_headers  = { "X-Test" = "val" }
 }
@@ -528,13 +506,11 @@ func TestValidate_RouteNotValidForConnect(t *testing.T) {
 
 func TestValidate_ValidProxyService(t *testing.T) {
 	src := []byte(`
-service "backend" {
-  type   = "http"
+service "http" "backend" {
   listen = "127.0.0.1:8081"
 }
 
-service "proxy" {
-  type             = "proxy"
+service "proxy" "proxy" {
   listen           = "0.0.0.0:8080"
   target           = service.backend.url
   request_headers  = { "X-Proxy" = "loki" }
@@ -596,8 +572,7 @@ logging {
   output = "/var/log/app.log"
 }
 
-service "api" {
-  type   = "http"
+service "http" "api" {
   listen = "0.0.0.0:8080"
 }
 `)
@@ -618,8 +593,7 @@ tracing {
   ratio    = 0.5
 }
 
-service "api" {
-  type   = "http"
+service "http" "api" {
   listen = "0.0.0.0:8080"
 }
 `)
@@ -639,8 +613,7 @@ metrics {
   path    = "/-/metrics"
 }
 
-service "api" {
-  type   = "http"
+service "http" "api" {
   listen = "0.0.0.0:8080"
 }
 `)
@@ -658,8 +631,7 @@ logging {
   format = "text"
 }
 
-service "noisy" {
-  type   = "http"
+service "http" "noisy" {
   listen = "0.0.0.0:8080"
 
   logging {
@@ -686,8 +658,7 @@ service "noisy" {
 
 func TestParse_ObservabilityDefaults(t *testing.T) {
 	src := []byte(`
-service "api" {
-  type   = "http"
+service "http" "api" {
   listen = "0.0.0.0:8080"
 }
 `)

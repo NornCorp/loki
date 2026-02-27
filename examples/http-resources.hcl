@@ -12,8 +12,7 @@
 #   DELETE /users/:id    - Delete a user
 #   GET    /health       - Health check
 
-service "api" {
-  type   = "http"
+service "http" "api" {
   listen = "0.0.0.0:8080"
 
   resource "user" {

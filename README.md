@@ -34,8 +34,7 @@ Loki uses HCL for configuration. A config file defines one or more services that
 The simplest configuration: define routes with static responses.
 
 ```hcl
-service "api" {
-  type   = "http"
+service "http" "api" {
   listen = "0.0.0.0:8080"
 
   handle "hello" {
@@ -52,8 +51,7 @@ service "api" {
 Define a `resource` block and Loki generates full CRUD endpoints with fake data:
 
 ```hcl
-service "api" {
-  type   = "http"
+service "http" "api" {
   listen = "0.0.0.0:8080"
 
   resource "user" {
@@ -86,8 +84,7 @@ The resource name is automatically pluralized for endpoint paths. See [docs/fake
 Services can call other services and aggregate responses using `step` blocks:
 
 ```hcl
-service "user-service" {
-  type   = "http"
+service "http" "user-service" {
   listen = "127.0.0.1:8081"
 
   resource "user" {
@@ -98,8 +95,7 @@ service "user-service" {
   }
 }
 
-service "api-gateway" {
-  type   = "http"
+service "http" "api-gateway" {
   listen = "0.0.0.0:8080"
 
   handle "dashboard" {
@@ -126,8 +122,7 @@ service "api-gateway" {
 Add realistic percentile-based latency at the service or handler level:
 
 ```hcl
-service "api" {
-  type   = "http"
+service "http" "api" {
   listen = "0.0.0.0:8080"
 
   # Service-level: applies to all handlers
@@ -158,8 +153,7 @@ service "api" {
 Simulate failures at a configured rate:
 
 ```hcl
-service "api" {
-  type   = "http"
+service "http" "api" {
   listen = "0.0.0.0:8080"
 
   error "server_error" {
@@ -188,8 +182,7 @@ Error blocks can also be defined at the handler level to override service defaul
 Enable cross-origin requests for browser-based clients:
 
 ```hcl
-service "api" {
-  type   = "http"
+service "http" "api" {
   listen = "0.0.0.0:8080"
 
   cors {
@@ -216,8 +209,7 @@ When no `cors` block is present, no CORS headers are sent. `allowed_methods` and
 Simulate CPU and memory load during request handling for autoscaling and resource limit demos:
 
 ```hcl
-service "api" {
-  type   = "http"
+service "http" "api" {
   listen = "0.0.0.0:8080"
 
   load {
@@ -242,8 +234,7 @@ CPU load uses a duty cycle (busy loop + sleep in 10ms windows). Memory is alloca
 Throttle requests beyond a configured rate:
 
 ```hcl
-service "api" {
-  type   = "http"
+service "http" "api" {
   listen = "0.0.0.0:8080"
 
   # Service-level: applies to all handlers
@@ -279,8 +270,7 @@ Uses a token bucket algorithm -- requests are allowed up to the RPS rate with bu
 Serve files from a directory:
 
 ```hcl
-service "cdn" {
-  type   = "http"
+service "http" "cdn" {
   listen = "0.0.0.0:8080"
 
   static {
@@ -305,8 +295,7 @@ Explicit handlers and resources take priority over static files.
 Simulate text-based protocols with pattern matching:
 
 ```hcl
-service "redis-like" {
-  type   = "tcp"
+service "tcp" "redis-like" {
   listen = "0.0.0.0:6379"
 
   handle "ping" {
@@ -331,8 +320,7 @@ service "redis-like" {
 Simulate a PostgreSQL database with tables, fake data, and SQL query handling. Clients like `psql` and `pgcli` can connect and run queries against auto-generated data.
 
 ```hcl
-service "db" {
-  type   = "postgres"
+service "postgres" "db" {
   listen = "0.0.0.0:5432"
 
   auth {
@@ -395,8 +383,7 @@ pgcli -h localhost -p 5432 -u app -d myapp
 Define gRPC/Connect-RPC services with auto-generated CRUD methods:
 
 ```hcl
-service "user-api" {
-  type    = "connect"
+service "connect" "user-api" {
   listen  = "0.0.0.0:8080"
   package = "api.v1"
 
@@ -422,8 +409,7 @@ service "user-api" {
 Proxy requests to an upstream target with header injection and local route overrides:
 
 ```hcl
-service "api-proxy" {
-  type   = "proxy"
+service "proxy" "api-proxy" {
   listen = "0.0.0.0:8080"
   target = "http://httpbin.org"
 
@@ -447,8 +433,7 @@ Proxy targets can reference other services: `target = service.backend.url`
 Enable HTTPS with auto-generated self-signed certificates or your own:
 
 ```hcl
-service "api" {
-  type   = "http"
+service "http" "api" {
   listen = "0.0.0.0:8443"
 
   tls {}  # auto-generates a self-signed certificate
@@ -500,8 +485,7 @@ metrics {
 Per-service logging overrides are supported inside `service` blocks:
 
 ```hcl
-service "noisy-api" {
-  type   = "http"
+service "http" "noisy-api" {
   listen = "0.0.0.0:8080"
 
   logging {
@@ -531,8 +515,7 @@ heimdall {
   address = "localhost:7946"
 }
 
-service "user-service" {
-  type   = "http"
+service "http" "user-service" {
   listen = "127.0.0.1:8081"
   # Automatically registered with Heimdall on startup
 }
