@@ -129,6 +129,13 @@ func (s *ConnectService) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create listener: %w", err)
 	}
+
+	// Wrap with TLS if configured
+	listener, err = service.WrapListenerTLS(listener, s.config.TLS)
+	if err != nil {
+		listener.Close()
+		return fmt.Errorf("failed to configure TLS: %w", err)
+	}
 	s.listener = listener
 
 	// Create HTTP server with h2c handler
@@ -137,8 +144,12 @@ func (s *ConnectService) Start(ctx context.Context) error {
 	}
 
 	// Start server in background
+	proto := "Connect-RPC"
+	if s.config.TLS != nil {
+		proto = "Connect-RPC (TLS)"
+	}
 	go func() {
-		log.Printf("Connect-RPC service %q listening on %s", s.name, s.config.Listen)
+		log.Printf("%s service %q listening on %s", proto, s.name, s.config.Listen)
 		if err := s.server.Serve(listener); err != nil && err != http.ErrServerClosed {
 			log.Printf("Connect-RPC server error: %v", err)
 		}

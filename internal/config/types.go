@@ -31,6 +31,7 @@ type ServiceConfig struct {
 	CORS            *CORSConfig        `hcl:"cors,block"`                // For HTTP services
 	Static          *StaticConfig      `hcl:"static,block"`              // For HTTP services
 	Auth            *AuthConfig        `hcl:"auth,block"`                // For postgres service
+	TLS             *TLSConfig         `hcl:"tls,block"`
 	Timing          *TimingConfig      `hcl:"timing,block"`
 	Load            *LoadConfig        `hcl:"load,block"`                // For HTTP services
 	Errors          []*ErrorConfig     `hcl:"error,block"`
@@ -131,6 +132,15 @@ type StaticConfig struct {
 	Route string   `hcl:"route,optional"`
 	Root  string   `hcl:"root"`
 	Body  hcl.Body `hcl:",remain"`
+}
+
+// TLSConfig defines TLS settings for services.
+// An empty tls {} block auto-generates a self-signed certificate.
+// Provide cert and key to use your own.
+type TLSConfig struct {
+	Cert string   `hcl:"cert,optional"`
+	Key  string   `hcl:"key,optional"`
+	Body hcl.Body `hcl:",remain"`
 }
 
 // AuthConfig defines authentication for postgres services

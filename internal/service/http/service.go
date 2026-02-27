@@ -12,11 +12,15 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/norncorp/loki/internal/config"
 	"github.com/norncorp/loki/internal/meta"
+	"github.com/norncorp/loki/internal/metrics"
 	"github.com/norncorp/loki/internal/resource"
 	"github.com/norncorp/loki/internal/service"
 	"github.com/norncorp/loki/internal/serf"
 	"github.com/norncorp/loki/internal/step"
+	"github.com/norncorp/loki/internal/tracing"
 	"github.com/norncorp/loki/pkg/api/meta/v1/metaapiconnect"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )
@@ -318,6 +322,13 @@ func (s *HTTPService) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create listener: %w", err)
 	}
+
+	// Wrap with TLS if configured
+	listener, err = service.WrapListenerTLS(listener, s.config.TLS)
+	if err != nil {
+		listener.Close()
+		return fmt.Errorf("failed to configure TLS: %w", err)
+	}
 	s.listener = listener
 
 	// Create HTTP server
@@ -326,8 +337,12 @@ func (s *HTTPService) Start(ctx context.Context) error {
 	}
 
 	// Start server in background
+	proto := "HTTP"
+	if s.config.TLS != nil {
+		proto = "HTTPS"
+	}
 	go func() {
-		log.Printf("HTTP service %q listening on %s", s.name, s.config.Listen)
+		log.Printf("%s service %q listening on %s", proto, s.name, s.config.Listen)
 		if err := s.server.Serve(listener); err != nil && err != http.ErrServerClosed {
 			log.Printf("HTTP server error: %v", err)
 		}
@@ -357,6 +372,12 @@ func (s *HTTPService) Stop(ctx context.Context) error {
 
 // ServeHTTP handles incoming HTTP requests
 func (s *HTTPService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Serve Prometheus metrics endpoint
+	if r.URL.Path == "/metrics" {
+		metrics.Handler().ServeHTTP(w, r)
+		return
+	}
+
 	start := time.Now()
 
 	// Wrap response writer to capture status code
@@ -436,7 +457,9 @@ func (s *HTTPService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Try static file server if configured
 		if s.staticHandler != nil && strings.HasPrefix(r.URL.Path, s.staticPrefix) {
 			s.staticHandler.ServeHTTP(wrapped, r)
-			s.requestLogger.Log(r.Method, r.URL.Path, wrapped.status, time.Since(start), getLogLevel(r.URL.Path, wrapped.status))
+			duration := time.Since(start)
+			s.requestLogger.Log(r.Method, r.URL.Path, wrapped.status, duration, getLogLevel(r.URL.Path, wrapped.status))
+			metrics.RecordRequest(s.name, "static", wrapped.status, duration)
 			return
 		}
 
@@ -445,15 +468,19 @@ func (s *HTTPService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		wrapped.Header().Set("Content-Type", "application/json")
 		wrapped.Write([]byte(`{"error":"not found"}`))
 		// Log the 404
-		s.requestLogger.Log(r.Method, r.URL.Path, wrapped.status, time.Since(start), getLogLevel(r.URL.Path, wrapped.status))
+		duration := time.Since(start)
+		s.requestLogger.Log(r.Method, r.URL.Path, wrapped.status, duration, getLogLevel(r.URL.Path, wrapped.status))
+		metrics.RecordRequest(s.name, "not_found", wrapped.status, duration)
 		return
 	}
 
 	// Handle the request with the matched route
 	s.handleRequest(wrapped, r, route)
 
-	// Log the request
-	s.requestLogger.Log(r.Method, r.URL.Path, wrapped.status, time.Since(start), getLogLevel(r.URL.Path, wrapped.status))
+	// Log and record metrics
+	duration := time.Since(start)
+	s.requestLogger.Log(r.Method, r.URL.Path, wrapped.status, duration, getLogLevel(r.URL.Path, wrapped.status))
+	metrics.RecordRequest(s.name, route.Handler.Name, wrapped.status, duration)
 }
 
 // convertErrorConfigs converts config.ErrorConfig to service.ErrorConfig
@@ -503,6 +530,18 @@ func convertErrorConfigs(errorCfgs []*config.ErrorConfig) ([]*service.ErrorConfi
 // handleRequest handles a matched request
 func (s *HTTPService) handleRequest(w http.ResponseWriter, r *http.Request, route *Route) {
 	handler := route.Handler
+
+	// Start tracing span
+	tracer := tracing.Tracer("loki.http")
+	ctx, span := tracer.Start(r.Context(), fmt.Sprintf("%s %s", r.Method, r.URL.Path),
+		trace.WithAttributes(
+			attribute.String("service", s.name),
+			attribute.String("handler", handler.Name),
+		),
+	)
+	defer span.End()
+	r = r.WithContext(ctx)
+
 	if handler.Response == nil {
 		// No response configured - return empty 200
 		w.WriteHeader(http.StatusOK)
@@ -555,6 +594,7 @@ func (s *HTTPService) handleRequest(w http.ResponseWriter, r *http.Request, rout
 	} else if s.errorInjector != nil {
 		// Use service-level errors
 		if errCfg := s.errorInjector.ShouldInject(); errCfg != nil {
+			metrics.RecordError(s.name, handler.Name, "injected")
 			s.errorInjector.WriteError(w, errCfg)
 			return
 		}
@@ -589,9 +629,11 @@ func (s *HTTPService) handleRequest(w http.ResponseWriter, r *http.Request, rout
 		executor := step.NewExecutor(handler.Steps)
 		if err := executor.Execute(r.Context(), evalCtx); err != nil {
 			log.Printf("Error executing steps: %v", err)
+			metrics.RecordError(s.name, handler.Name, "step_failed")
+			span.RecordError(err)
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(fmt.Sprintf(`{"error":"step execution failed: %s"}`, err.Error())))
+			fmt.Fprintf(w, `{"error":"step execution failed: %s"}`, err.Error())
 			return
 		}
 	}

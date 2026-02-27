@@ -442,6 +442,61 @@ service "api-proxy" {
 
 Proxy targets can reference other services: `target = service.backend.url`
 
+### TLS
+
+Enable HTTPS with auto-generated self-signed certificates or your own:
+
+```hcl
+service "api" {
+  type   = "http"
+  listen = "0.0.0.0:8443"
+
+  tls {}  # auto-generates a self-signed certificate
+
+  handle "hello" {
+    route = "GET /hello"
+    response {
+      body = jsonencode({ message = "Hello over TLS!" })
+    }
+  }
+}
+```
+
+Or with provided certificates:
+
+```hcl
+tls {
+  cert = "/path/to/cert.pem"
+  key  = "/path/to/key.pem"
+}
+```
+
+TLS works on all service types: `http`, `connect`, `proxy`, `tcp`, and `postgres`. For PostgreSQL, TLS is negotiated via the standard SSL handshake -- clients that request SSL will be upgraded transparently.
+
+### Metrics & Tracing
+
+Loki exposes Prometheus metrics at `/metrics` on every HTTP service:
+
+```
+loki_requests_total{service, handler, status}
+loki_request_duration_seconds{service, handler}
+loki_step_duration_seconds{service, handler, step}
+loki_errors_total{service, handler, type}
+```
+
+```bash
+curl http://localhost:8080/metrics
+```
+
+OpenTelemetry tracing is enabled via standard environment variables:
+
+```bash
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+loki server -c config.hcl
+```
+
+Traces include spans for request handling and step execution, with context propagated through the step chain.
+
 ### Heimdall Integration
 
 Register services with [Heimdall](../heimdall/) for mesh-based service discovery and topology visualization:
@@ -495,6 +550,7 @@ loki validate -c config.hcl    # Validate a config file without starting
 | [postgres.hcl](examples/postgres.hcl) | PostgreSQL with tables, auth, and custom queries |
 | [connect-rpc.hcl](examples/connect-rpc.hcl) | Connect-RPC with resources, custom methods, and steps |
 | [proxy-reverse.hcl](examples/proxy-reverse.hcl) | Reverse proxy with header transforms |
+| [https.hcl](examples/https.hcl) | HTTPS with auto-generated self-signed certificate |
 
 ## Project Structure
 
@@ -512,10 +568,13 @@ loki/
 │   │   ├── proxy/      Reverse proxy
 │   │   ├── registry.go Service lifecycle manager
 │   │   ├── timing.go   Latency injection
-│   │   └── errors.go   Error injection
+│   │   ├── errors.go   Error injection
+│   │   └── tls.go      TLS config and listener wrapping
 │   ├── resource/       In-memory resource store (go-memdb)
 │   ├── fake/           Fake data generation (gofakeit)
 │   ├── step/           Service chaining execution
+│   ├── metrics/        Prometheus metrics
+│   ├── tracing/        OpenTelemetry tracing
 │   ├── serf/           Heimdall gossip mesh client
 │   └── meta/           Service metadata
 ├── api/                Protocol Buffers

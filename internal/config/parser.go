@@ -250,6 +250,15 @@ func Validate(cfg *Config) error {
 // validateServiceFields checks that type-specific service attributes are only
 // used with their intended service type.
 func validateServiceFields(svc *ServiceConfig) error {
+	// Validate TLS config if present
+	if svc.TLS != nil {
+		hasCert := svc.TLS.Cert != ""
+		hasKey := svc.TLS.Key != ""
+		if hasCert != hasKey {
+			return fmt.Errorf("service %q: tls requires both cert and key", svc.Name)
+		}
+	}
+
 	switch svc.Type {
 	case "proxy":
 		if svc.Package != "" {

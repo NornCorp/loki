@@ -15,6 +15,7 @@ import (
 	_ "github.com/norncorp/loki/internal/service/postgres" // Register PostgreSQL service
 	_ "github.com/norncorp/loki/internal/service/proxy"    // Register Proxy service
 	_ "github.com/norncorp/loki/internal/service/tcp"      // Register TCP service
+	"github.com/norncorp/loki/internal/tracing"
 	"github.com/spf13/cobra"
 )
 
@@ -49,6 +50,14 @@ func runServer(cmd *cobra.Command, args []string) error {
 	// Validate config
 	if err := config.Validate(cfg); err != nil {
 		return fmt.Errorf("invalid config: %w", err)
+	}
+
+	// Initialize tracing (uses OTEL_EXPORTER_OTLP_ENDPOINT env var if set)
+	tp, err := tracing.Init(context.Background(), tracing.Config{
+		ServiceName: "loki",
+	})
+	if err != nil {
+		log.Printf("Warning: failed to initialize tracing: %v", err)
 	}
 
 	// Create services
@@ -89,6 +98,13 @@ func runServer(cmd *cobra.Command, args []string) error {
 	// Stop services
 	if err := registry.Stop(ctx); err != nil {
 		return fmt.Errorf("failed to stop services: %w", err)
+	}
+
+	// Shutdown tracing
+	if tp != nil {
+		if err := tp.Shutdown(ctx); err != nil {
+			log.Printf("Warning: failed to shutdown tracing: %v", err)
+		}
 	}
 
 	log.Println("All services stopped successfully")

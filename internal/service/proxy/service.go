@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -57,6 +58,7 @@ type ProxyService struct {
 	name         string
 	config       *config.ServiceConfig
 	server       *http.Server
+	listener     net.Listener
 	proxy        *httputil.ReverseProxy
 	upstreamURL  *url.URL
 	requestXfm   *Transform
@@ -229,6 +231,20 @@ func (s *ProxyService) Upstreams() []string {
 
 // Start starts the proxy server
 func (s *ProxyService) Start(ctx context.Context) error {
+	// Create listener
+	listener, err := net.Listen("tcp", s.config.Listen)
+	if err != nil {
+		return fmt.Errorf("failed to create listener: %w", err)
+	}
+
+	// Wrap with TLS if configured
+	listener, err = service.WrapListenerTLS(listener, s.config.TLS)
+	if err != nil {
+		listener.Close()
+		return fmt.Errorf("failed to configure TLS: %w", err)
+	}
+	s.listener = listener
+
 	// Create HTTP handler that checks router first, then proxies
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Check if there's a handle override for this route
@@ -243,18 +259,21 @@ func (s *ProxyService) Start(ctx context.Context) error {
 
 	// Create HTTP server
 	s.server = &http.Server{
-		Addr:    s.config.Listen,
 		Handler: handler,
 	}
 
 	// Start server in background
+	proto := "Proxy"
+	if s.config.TLS != nil {
+		proto = "Proxy (TLS)"
+	}
 	go func() {
-		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Printf("%s service %q listening on %s (target: %s)", proto, s.name, s.config.Listen, s.upstreamURL)
+		if err := s.server.Serve(listener); err != nil && err != http.ErrServerClosed {
 			log.Printf("Proxy service %q error: %v", s.name, err)
 		}
 	}()
 
-	log.Printf("Proxy service %q listening on %s (target: %s)", s.name, s.config.Listen, s.upstreamURL)
 	return nil
 }
 

@@ -6,7 +6,10 @@ import (
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/norncorp/loki/internal/config"
+	"github.com/norncorp/loki/internal/tracing"
 	"github.com/zclconf/go-cty/cty"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Result contains the output from a step execution
@@ -34,8 +37,16 @@ func NewExecutor(steps []*config.StepConfig) *Executor {
 // Execute runs all steps in order, building up context for subsequent steps
 func (e *Executor) Execute(ctx context.Context, evalCtx *hcl.EvalContext) error {
 	for _, step := range e.steps {
+		// Create a tracing span for this step
+		tracer := tracing.Tracer("loki.step")
+		stepCtx, span := tracer.Start(ctx, "step."+step.Name,
+			trace.WithAttributes(attribute.String("step.name", step.Name)),
+		)
+
 		// Execute the step based on its type
-		result, err := e.executeStep(ctx, step, evalCtx)
+		result, err := e.executeStep(stepCtx, step, evalCtx)
+		span.End()
+
 		if err != nil {
 			return fmt.Errorf("step %q failed: %w", step.Name, err)
 		}

@@ -3,6 +3,7 @@ package postgres
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"log"
@@ -18,15 +19,16 @@ import (
 
 // PostgresService implements a fake PostgreSQL database service.
 type PostgresService struct {
-	name     string
-	config   *config.ServiceConfig
-	auth     *Authenticator
-	matcher  *QueryMatcher
-	store    *resource.Store
-	listener net.Listener
-	wg       sync.WaitGroup
-	ctx      context.Context
-	cancel   context.CancelFunc
+	name      string
+	config    *config.ServiceConfig
+	auth      *Authenticator
+	matcher   *QueryMatcher
+	store     *resource.Store
+	listener  net.Listener
+	tlsConfig *tls.Config
+	wg        sync.WaitGroup
+	ctx       context.Context
+	cancel    context.CancelFunc
 }
 
 // NewPostgresService creates a new PostgreSQL service from config.
@@ -148,6 +150,16 @@ func (s *PostgresService) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("listen: %w", err)
 	}
+
+	// Build TLS config if present (used for PostgreSQL SSL negotiation)
+	if s.config.TLS != nil {
+		tlsCfg, err := service.BuildTLSConfig(s.config.TLS)
+		if err != nil {
+			listener.Close()
+			return fmt.Errorf("failed to configure TLS: %w", err)
+		}
+		s.tlsConfig = tlsCfg
+	}
 	s.listener = listener
 
 	s.wg.Add(1)
@@ -156,7 +168,11 @@ func (s *PostgresService) Start(ctx context.Context) error {
 		s.acceptLoop()
 	}()
 
-	log.Printf("PostgreSQL service %q listening on %s", s.name, s.config.Listen)
+	proto := "PostgreSQL"
+	if s.config.TLS != nil {
+		proto = "PostgreSQL (TLS)"
+	}
+	log.Printf("%s service %q listening on %s", proto, s.name, s.config.Listen)
 	return nil
 }
 
@@ -212,10 +228,25 @@ func (s *PostgresService) handleConnection(conn net.Conn) {
 		return
 	}
 
-	// Reject SSL and wait for regular startup
+	// Handle SSL request
 	if isSSL {
-		if _, err := conn.Write([]byte("N")); err != nil {
-			return
+		if s.tlsConfig != nil {
+			// Accept SSL: upgrade the connection to TLS
+			if _, err := conn.Write([]byte("S")); err != nil {
+				return
+			}
+			tlsConn := tls.Server(conn, s.tlsConfig)
+			if err := tlsConn.Handshake(); err != nil {
+				log.Printf("PostgreSQL TLS handshake error: %v", err)
+				return
+			}
+			conn = tlsConn
+			rw = bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
+		} else {
+			// Reject SSL
+			if _, err := conn.Write([]byte("N")); err != nil {
+				return
+			}
 		}
 		startup, _, err = readStartupMessage(rw)
 		if err != nil {
