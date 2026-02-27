@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/norncorp/loki/internal/config"
@@ -195,7 +196,7 @@ func (r *Registry) ConfigureHeimdall(heimdallCfg *config.HeimdallConfig, allConf
 }
 
 // Factory is a function that creates a service from a config
-type Factory func(*config.ServiceConfig) (Service, error)
+type Factory func(*config.ServiceConfig, *slog.Logger) (Service, error)
 
 // factories maps service types to their factory functions
 var factories = make(map[string]Factory)
@@ -206,21 +207,25 @@ func RegisterFactory(serviceType string, factory Factory) {
 }
 
 // CreateService creates a service from a config using the registered factory
-func CreateService(cfg *config.ServiceConfig) (Service, error) {
+func CreateService(cfg *config.ServiceConfig, logger *slog.Logger) (Service, error) {
 	factory, ok := factories[cfg.Type]
 	if !ok {
 		return nil, fmt.Errorf("unknown service type: %q", cfg.Type)
 	}
 
-	return factory(cfg)
+	return factory(cfg, logger)
 }
 
 // CreateServices creates all services from a config
-func CreateServices(cfg *config.Config) ([]Service, error) {
+func CreateServices(cfg *config.Config, loggers map[string]*slog.Logger) ([]Service, error) {
 	services := make([]Service, 0, len(cfg.Services))
 
 	for _, svcCfg := range cfg.Services {
-		svc, err := CreateService(svcCfg)
+		logger := loggers[svcCfg.Name]
+		if logger == nil {
+			logger = slog.Default()
+		}
+		svc, err := CreateService(svcCfg, logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create service %q: %w", svcCfg.Name, err)
 		}

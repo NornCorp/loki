@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -28,7 +29,7 @@ func TestNewHTTPService(t *testing.T) {
 		},
 	}
 
-	svc, err := NewHTTPService(cfg)
+	svc, err := NewHTTPService(cfg, slog.Default())
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 	require.Equal(t, "test", svc.Name())
@@ -48,7 +49,7 @@ func TestNewHTTPService_InvalidHandler(t *testing.T) {
 		},
 	}
 
-	svc, err := NewHTTPService(cfg)
+	svc, err := NewHTTPService(cfg, slog.Default())
 	require.Error(t, err)
 	require.Nil(t, svc)
 }
@@ -60,7 +61,7 @@ func TestHTTPService_StartStop(t *testing.T) {
 		Listen: "127.0.0.1:0",
 	}
 
-	svc, err := NewHTTPService(cfg)
+	svc, err := NewHTTPService(cfg, slog.Default())
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -112,7 +113,7 @@ func TestHTTPService_ServeHTTP(t *testing.T) {
 		},
 	}
 
-	svc, err := NewHTTPService(cfg)
+	svc, err := NewHTTPService(cfg, slog.Default())
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -193,7 +194,7 @@ func TestHTTPService_EmptyResponse(t *testing.T) {
 		},
 	}
 
-	svc, err := NewHTTPService(cfg)
+	svc, err := NewHTTPService(cfg, slog.Default())
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -231,7 +232,7 @@ func TestHTTPService_StaticFiles(t *testing.T) {
 		},
 	}
 
-	svc, err := NewHTTPService(cfg)
+	svc, err := NewHTTPService(cfg, slog.Default())
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -288,7 +289,7 @@ func TestHTTPService_StaticFilesWithPrefix(t *testing.T) {
 		},
 	}
 
-	svc, err := NewHTTPService(cfg)
+	svc, err := NewHTTPService(cfg, slog.Default())
 	require.NoError(t, err)
 
 	ctx := context.Background()

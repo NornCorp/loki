@@ -2,7 +2,7 @@ package topology
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/hashicorp/serf/serf"
@@ -68,13 +68,13 @@ func (b *Broadcaster) broadcastTopology() {
 
 	data, err := json.Marshal(event)
 	if err != nil {
-		log.Printf("Failed to marshal topology event: %v", err)
+		slog.Error("failed to marshal topology event", "error", err)
 		return
 	}
 
 	// Broadcast via Serf user event
 	if err := b.mesh.UserEvent("topology", data, false); err != nil {
-		log.Printf("Failed to broadcast topology event: %v", err)
+		slog.Error("failed to broadcast topology event", "error", err)
 	}
 }
 

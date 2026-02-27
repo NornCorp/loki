@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
@@ -266,10 +267,90 @@ func validateCLICommand(cmd *CLICommandConfig, path string) error {
 	return nil
 }
 
+// validLoggingLevels is the set of allowed logging levels.
+var validLoggingLevels = map[string]bool{
+	"debug": true, "info": true, "warn": true, "error": true,
+}
+
+// validLoggingFormats is the set of allowed logging formats.
+var validLoggingFormats = map[string]bool{
+	"text": true, "json": true,
+}
+
+// validTracingSamplers is the set of allowed tracing samplers.
+var validTracingSamplers = map[string]bool{
+	"always_on": true, "always_off": true, "parent_based": true, "ratio": true,
+}
+
+// validateLogging validates a LoggingConfig block.
+func validateLogging(cfg *LoggingConfig, prefix string) error {
+	if cfg == nil {
+		return nil
+	}
+	if cfg.Level != nil && !validLoggingLevels[*cfg.Level] {
+		return fmt.Errorf("%s: invalid logging level %q (must be debug, info, warn, or error)", prefix, *cfg.Level)
+	}
+	if cfg.Format != nil && !validLoggingFormats[*cfg.Format] {
+		return fmt.Errorf("%s: invalid logging format %q (must be text or json)", prefix, *cfg.Format)
+	}
+	if cfg.Output != nil {
+		v := *cfg.Output
+		if v != "stdout" && v != "stderr" && v == "" {
+			return fmt.Errorf("%s: logging output must be stdout, stderr, or a non-empty file path", prefix)
+		}
+	}
+	return nil
+}
+
+// validateTracing validates a TracingConfig block.
+func validateTracing(cfg *TracingConfig) error {
+	if cfg == nil {
+		return nil
+	}
+	if cfg.Sampler != nil && !validTracingSamplers[*cfg.Sampler] {
+		return fmt.Errorf("tracing: invalid sampler %q (must be always_on, always_off, parent_based, or ratio)", *cfg.Sampler)
+	}
+	if cfg.Ratio != nil {
+		if *cfg.Ratio < 0.0 || *cfg.Ratio > 1.0 {
+			return fmt.Errorf("tracing: ratio must be between 0.0 and 1.0, got %g", *cfg.Ratio)
+		}
+	}
+	// ratio is required when sampler = "ratio"
+	sampler := ""
+	if cfg.Sampler != nil {
+		sampler = *cfg.Sampler
+	}
+	if sampler == "ratio" && cfg.Ratio == nil {
+		return fmt.Errorf("tracing: ratio is required when sampler is \"ratio\"")
+	}
+	return nil
+}
+
+// validateMetrics validates a MetricsConfig block.
+func validateMetrics(cfg *MetricsConfig) error {
+	if cfg == nil {
+		return nil
+	}
+	if cfg.Path != nil && !strings.HasPrefix(*cfg.Path, "/") {
+		return fmt.Errorf("metrics: path must start with /, got %q", *cfg.Path)
+	}
+	return nil
+}
+
 // Validate checks the configuration for errors
 func Validate(cfg *Config) error {
 	if cfg == nil {
 		return fmt.Errorf("config is nil")
+	}
+
+	if err := validateLogging(cfg.Logging, "logging"); err != nil {
+		return err
+	}
+	if err := validateTracing(cfg.Tracing); err != nil {
+		return err
+	}
+	if err := validateMetrics(cfg.Metrics); err != nil {
+		return err
 	}
 
 	for i, svc := range cfg.Services {
@@ -287,6 +368,10 @@ func Validate(cfg *Config) error {
 		}
 
 		if err := validateServiceFields(svc); err != nil {
+			return err
+		}
+
+		if err := validateLogging(svc.Logging, fmt.Sprintf("service %q logging", svc.Name)); err != nil {
 			return err
 		}
 

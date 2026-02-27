@@ -586,6 +586,228 @@ func TestValidate_ValidConnectService(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// --- Observability config tests (Phase 1) ---
+
+func TestParse_LoggingConfig(t *testing.T) {
+	src := []byte(`
+logging {
+  level  = "debug"
+  format = "json"
+  output = "/var/log/app.log"
+}
+
+service "api" {
+  type   = "http"
+  listen = "0.0.0.0:8080"
+}
+`)
+	cfg, err := Parse(src, "test.hcl")
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Logging)
+	require.Equal(t, "debug", *cfg.Logging.Level)
+	require.Equal(t, "json", *cfg.Logging.Format)
+	require.Equal(t, "/var/log/app.log", *cfg.Logging.Output)
+}
+
+func TestParse_TracingConfig(t *testing.T) {
+	src := []byte(`
+tracing {
+  enabled  = true
+  endpoint = "otel:4318"
+  sampler  = "ratio"
+  ratio    = 0.5
+}
+
+service "api" {
+  type   = "http"
+  listen = "0.0.0.0:8080"
+}
+`)
+	cfg, err := Parse(src, "test.hcl")
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Tracing)
+	require.True(t, *cfg.Tracing.Enabled)
+	require.Equal(t, "otel:4318", *cfg.Tracing.Endpoint)
+	require.Equal(t, "ratio", *cfg.Tracing.Sampler)
+	require.InDelta(t, 0.5, *cfg.Tracing.Ratio, 0.001)
+}
+
+func TestParse_MetricsConfig(t *testing.T) {
+	src := []byte(`
+metrics {
+  enabled = false
+  path    = "/-/metrics"
+}
+
+service "api" {
+  type   = "http"
+  listen = "0.0.0.0:8080"
+}
+`)
+	cfg, err := Parse(src, "test.hcl")
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Metrics)
+	require.False(t, *cfg.Metrics.Enabled)
+	require.Equal(t, "/-/metrics", *cfg.Metrics.Path)
+}
+
+func TestParse_ServiceLoggingOverride(t *testing.T) {
+	src := []byte(`
+logging {
+  level  = "info"
+  format = "text"
+}
+
+service "noisy" {
+  type   = "http"
+  listen = "0.0.0.0:8080"
+
+  logging {
+    level  = "warn"
+    output = "/var/log/noisy.log"
+  }
+}
+`)
+	cfg, err := Parse(src, "test.hcl")
+	require.NoError(t, err)
+
+	// Global logging
+	require.NotNil(t, cfg.Logging)
+	require.Equal(t, "info", *cfg.Logging.Level)
+
+	// Per-service logging override
+	svc := cfg.Services[0]
+	require.NotNil(t, svc.Logging)
+	require.Equal(t, "warn", *svc.Logging.Level)
+	require.Equal(t, "/var/log/noisy.log", *svc.Logging.Output)
+	// Format not overridden, should be nil
+	require.Nil(t, svc.Logging.Format)
+}
+
+func TestParse_ObservabilityDefaults(t *testing.T) {
+	src := []byte(`
+service "api" {
+  type   = "http"
+  listen = "0.0.0.0:8080"
+}
+`)
+	cfg, err := Parse(src, "test.hcl")
+	require.NoError(t, err)
+	require.Nil(t, cfg.Logging)
+	require.Nil(t, cfg.Tracing)
+	require.Nil(t, cfg.Metrics)
+	require.Nil(t, cfg.Services[0].Logging)
+}
+
+func TestValidate_LoggingLevel_Invalid(t *testing.T) {
+	level := "trace"
+	cfg := &Config{
+		Logging: &LoggingConfig{Level: &level},
+	}
+	err := Validate(cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid logging level")
+}
+
+func TestValidate_LoggingFormat_Invalid(t *testing.T) {
+	format := "yaml"
+	cfg := &Config{
+		Logging: &LoggingConfig{Format: &format},
+	}
+	err := Validate(cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid logging format")
+}
+
+func TestValidate_LoggingOutput_Empty(t *testing.T) {
+	output := ""
+	cfg := &Config{
+		Logging: &LoggingConfig{Output: &output},
+	}
+	err := Validate(cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "logging output must be stdout, stderr, or a non-empty file path")
+}
+
+func TestValidate_TracingSampler_Invalid(t *testing.T) {
+	sampler := "random"
+	cfg := &Config{
+		Tracing: &TracingConfig{Sampler: &sampler},
+	}
+	err := Validate(cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid sampler")
+}
+
+func TestValidate_TracingRatio_OutOfRange(t *testing.T) {
+	ratio := 1.5
+	sampler := "ratio"
+	cfg := &Config{
+		Tracing: &TracingConfig{Sampler: &sampler, Ratio: &ratio},
+	}
+	err := Validate(cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "ratio must be between 0.0 and 1.0")
+}
+
+func TestValidate_TracingRatio_RequiredForRatioSampler(t *testing.T) {
+	sampler := "ratio"
+	cfg := &Config{
+		Tracing: &TracingConfig{Sampler: &sampler},
+	}
+	err := Validate(cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "ratio is required when sampler is \"ratio\"")
+}
+
+func TestValidate_MetricsPath_NoSlash(t *testing.T) {
+	path := "metrics"
+	cfg := &Config{
+		Metrics: &MetricsConfig{Path: &path},
+	}
+	err := Validate(cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "path must start with /")
+}
+
+func TestValidate_ServiceLogging_InvalidLevel(t *testing.T) {
+	level := "verbose"
+	cfg := &Config{
+		Services: []*ServiceConfig{
+			{
+				Name:    "api",
+				Type:    "http",
+				Listen:  "0.0.0.0:8080",
+				Logging: &LoggingConfig{Level: &level},
+			},
+		},
+	}
+	err := Validate(cfg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "service \"api\" logging")
+	require.Contains(t, err.Error(), "invalid logging level")
+}
+
+func TestValidate_ObservabilityValid(t *testing.T) {
+	level := "info"
+	format := "json"
+	output := "stderr"
+	enabled := true
+	sampler := "ratio"
+	ratio := 0.1
+	path := "/metrics"
+	cfg := &Config{
+		Logging: &LoggingConfig{Level: &level, Format: &format, Output: &output},
+		Tracing: &TracingConfig{Enabled: &enabled, Sampler: &sampler, Ratio: &ratio},
+		Metrics: &MetricsConfig{Enabled: &enabled, Path: &path},
+		Services: []*ServiceConfig{
+			{Name: "api", Type: "http", Listen: "0.0.0.0:8080"},
+		},
+	}
+	err := Validate(cfg)
+	require.NoError(t, err)
+}
+
 // TestMain ensures tests run from the correct directory
 func TestMain(m *testing.M) {
 	os.Exit(m.Run())

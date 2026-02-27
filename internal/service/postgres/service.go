@@ -6,7 +6,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"math/rand"
 	"net"
 	"sync"
@@ -21,6 +21,7 @@ import (
 type PostgresService struct {
 	name      string
 	config    *config.ServiceConfig
+	logger    *slog.Logger
 	auth      *Authenticator
 	matcher   *QueryMatcher
 	store     *resource.Store
@@ -32,7 +33,7 @@ type PostgresService struct {
 }
 
 // NewPostgresService creates a new PostgreSQL service from config.
-func NewPostgresService(cfg *config.ServiceConfig) (*PostgresService, error) {
+func NewPostgresService(cfg *config.ServiceConfig, logger *slog.Logger) (*PostgresService, error) {
 	// Setup authentication
 	var users map[string]string
 	var database string
@@ -131,6 +132,7 @@ func NewPostgresService(cfg *config.ServiceConfig) (*PostgresService, error) {
 	return &PostgresService{
 		name:    cfg.Name,
 		config:  cfg,
+		logger:  logger,
 		auth:    auth,
 		matcher: matcher,
 		store:   store,
@@ -172,7 +174,7 @@ func (s *PostgresService) Start(ctx context.Context) error {
 	if s.config.TLS != nil {
 		proto = "PostgreSQL (TLS)"
 	}
-	log.Printf("%s service %q listening on %s", proto, s.name, s.config.Listen)
+	s.logger.Info("service listening", "proto", proto, "addr", s.config.Listen)
 	return nil
 }
 
@@ -182,7 +184,7 @@ func (s *PostgresService) Stop(ctx context.Context) error {
 		return nil
 	}
 
-	log.Printf("Stopping PostgreSQL service %q", s.name)
+	s.logger.Info("stopping service")
 
 	// Cancel context first so accept loop sees shutdown before listener close error
 	if s.cancel != nil {
@@ -203,7 +205,7 @@ func (s *PostgresService) acceptLoop() {
 			case <-s.ctx.Done():
 				return
 			default:
-				log.Printf("PostgreSQL accept error: %v", err)
+				s.logger.Error("accept error", "error", err)
 				continue
 			}
 		}
@@ -224,7 +226,7 @@ func (s *PostgresService) handleConnection(conn net.Conn) {
 	// Read startup message
 	startup, isSSL, err := readStartupMessage(rw)
 	if err != nil {
-		log.Printf("PostgreSQL startup error: %v", err)
+		s.logger.Error("startup error", "error", err)
 		return
 	}
 
@@ -237,7 +239,7 @@ func (s *PostgresService) handleConnection(conn net.Conn) {
 			}
 			tlsConn := tls.Server(conn, s.tlsConfig)
 			if err := tlsConn.Handshake(); err != nil {
-				log.Printf("PostgreSQL TLS handshake error: %v", err)
+				s.logger.Error("TLS handshake error", "error", err)
 				return
 			}
 			conn = tlsConn
@@ -250,14 +252,14 @@ func (s *PostgresService) handleConnection(conn net.Conn) {
 		}
 		startup, _, err = readStartupMessage(rw)
 		if err != nil {
-			log.Printf("PostgreSQL startup error: %v", err)
+			s.logger.Error("startup error", "error", err)
 			return
 		}
 	}
 
 	// Authenticate
 	if _, err := s.auth.Authenticate(rw, startup); err != nil {
-		log.Printf("PostgreSQL auth failed: %v", err)
+		s.logger.Error("auth failed", "error", err)
 		rw.Flush()
 		return
 	}
@@ -290,7 +292,7 @@ func (s *PostgresService) handleConnection(conn net.Conn) {
 			if err == io.EOF {
 				return
 			}
-			log.Printf("PostgreSQL read error: %v", err)
+			s.logger.Error("read error", "error", err)
 			return
 		}
 
@@ -330,7 +332,7 @@ func (s *PostgresService) handleQuery(w io.Writer, query string) {
 }
 
 func init() {
-	service.RegisterFactory("postgres", func(cfg *config.ServiceConfig) (service.Service, error) {
-		return NewPostgresService(cfg)
+	service.RegisterFactory("postgres", func(cfg *config.ServiceConfig, logger *slog.Logger) (service.Service, error) {
+		return NewPostgresService(cfg, logger)
 	})
 }

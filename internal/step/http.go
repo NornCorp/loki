@@ -32,11 +32,16 @@ func executeHTTPStep(ctx context.Context, httpCfg *config.HTTPStepConfig, evalCt
 	// Evaluate body if present
 	var bodyReader io.Reader
 	if httpCfg.BodyExpr != nil {
-		bodyStr, err := evaluateExpressionToString(httpCfg.BodyExpr, evalCtx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to evaluate body: %w", err)
+		val, diags := httpCfg.BodyExpr.Value(evalCtx)
+		if diags.HasErrors() {
+			return nil, fmt.Errorf("failed to evaluate body: %s", diags.Error())
 		}
-		bodyReader = strings.NewReader(bodyStr)
+		if !val.IsNull() {
+			if !val.Type().Equals(cty.String) {
+				return nil, fmt.Errorf("body must be a string, got %s", val.Type().FriendlyName())
+			}
+			bodyReader = strings.NewReader(val.AsString())
+		}
 	}
 
 	// Create HTTP request
@@ -47,12 +52,18 @@ func executeHTTPStep(ctx context.Context, httpCfg *config.HTTPStepConfig, evalCt
 
 	// Evaluate and add headers if present
 	if httpCfg.HeadersExpr != nil {
-		headers, err := evaluateHeaders(httpCfg.HeadersExpr, evalCtx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to evaluate headers: %w", err)
+		val, diags := httpCfg.HeadersExpr.Value(evalCtx)
+		if diags.HasErrors() {
+			return nil, fmt.Errorf("failed to evaluate headers: %s", diags.Error())
 		}
-		for key, value := range headers {
-			req.Header.Set(key, value)
+		if !val.IsNull() {
+			headers, err := evaluateHeaders(httpCfg.HeadersExpr, evalCtx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to evaluate headers: %w", err)
+			}
+			for key, value := range headers {
+				req.Header.Set(key, value)
+			}
 		}
 	}
 

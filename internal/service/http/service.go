@@ -3,7 +3,7 @@ package http
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -29,6 +29,7 @@ import (
 type HTTPService struct {
 	name             string
 	config           *config.ServiceConfig
+	logger           *slog.Logger
 	router           *Router
 	resourceHandlers []*ResourceHandler
 	resourceStore    *resource.Store
@@ -44,10 +45,12 @@ type HTTPService struct {
 	loadGenerator    *service.LoadGenerator  // CPU/memory load generator (optional)
 	rateLimiter      *service.RateLimiter              // Service-level rate limiter (optional)
 	handlerLimiters  map[string]*service.RateLimiter  // Handler-level rate limiters
+	metricsEnabled   bool                             // Whether to serve metrics endpoint
+	metricsPath      string                           // Prometheus scrape path
 }
 
 // NewHTTPService creates a new HTTP service
-func NewHTTPService(cfg *config.ServiceConfig) (*HTTPService, error) {
+func NewHTTPService(cfg *config.ServiceConfig, logger *slog.Logger) (*HTTPService, error) {
 	router := NewRouter()
 
 	// Add all handlers to the router
@@ -156,12 +159,15 @@ func NewHTTPService(cfg *config.ServiceConfig) (*HTTPService, error) {
 	svc := &HTTPService{
 		name:             cfg.Name,
 		config:           cfg,
+		logger:           logger,
 		router:           router,
 		resourceStore:    resourceStore,
 		resourceHandlers: resourceHandlers,
 		latencyInjector:  latencyInjector,
 		errorInjector:    errorInjector,
 		requestLogger:    NewRequestLogger(1000), // Store last 1000 requests
+		metricsEnabled:   metrics.IsEnabled(),
+		metricsPath:      metrics.Path(),
 	}
 
 	// Set up static file server if configured
@@ -307,7 +313,7 @@ func (s *HTTPService) ConfigureMetaService(allConfigs []*config.ServiceConfig, s
 	s.mux.Handle(path, h2c.NewHandler(handler, &http2.Server{}))
 
 	s.allConfigs = allConfigs
-	log.Printf("Meta service registered at path: %s", path)
+	s.logger.Info("meta service registered", "path", path)
 }
 
 // GetRequestLogger returns the service's request logger for registration
@@ -342,9 +348,9 @@ func (s *HTTPService) Start(ctx context.Context) error {
 		proto = "HTTPS"
 	}
 	go func() {
-		log.Printf("%s service %q listening on %s", proto, s.name, s.config.Listen)
+		s.logger.Info("service listening", "proto", proto, "addr", s.config.Listen)
 		if err := s.server.Serve(listener); err != nil && err != http.ErrServerClosed {
-			log.Printf("HTTP server error: %v", err)
+			s.logger.Error("server error", "error", err)
 		}
 	}()
 
@@ -357,7 +363,7 @@ func (s *HTTPService) Stop(ctx context.Context) error {
 		return nil
 	}
 
-	log.Printf("Stopping HTTP service %q", s.name)
+	s.logger.Info("stopping service")
 
 	// Use a timeout context for shutdown
 	shutdownCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -373,7 +379,7 @@ func (s *HTTPService) Stop(ctx context.Context) error {
 // ServeHTTP handles incoming HTTP requests
 func (s *HTTPService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Serve Prometheus metrics endpoint
-	if r.URL.Path == "/metrics" {
+	if s.metricsEnabled && r.URL.Path == s.metricsPath {
 		metrics.Handler().ServeHTTP(w, r)
 		return
 	}
@@ -553,15 +559,15 @@ func (s *HTTPService) handleRequest(w http.ResponseWriter, r *http.Request, rout
 		// Handler has its own timing config - parse and create injector for it
 		p50, err := service.ParseDuration(handler.Timing.P50)
 		if err != nil {
-			log.Printf("Error parsing handler timing.p50: %v", err)
+			s.logger.Error("failed to parse handler timing.p50", "handler", handler.Name, "error", err)
 		} else {
 			p90, err := service.ParseDuration(handler.Timing.P90)
 			if err != nil {
-				log.Printf("Error parsing handler timing.p90: %v", err)
+				s.logger.Error("failed to parse handler timing.p90", "handler", handler.Name, "error", err)
 			} else {
 				p99, err := service.ParseDuration(handler.Timing.P99)
 				if err != nil {
-					log.Printf("Error parsing handler timing.p99: %v", err)
+					s.logger.Error("failed to parse handler timing.p99", "handler", handler.Name, "error", err)
 				} else {
 					handlerLatency := service.NewLatencyInjector(service.TimingConfig{
 						P50:      p50,
@@ -583,7 +589,7 @@ func (s *HTTPService) handleRequest(w http.ResponseWriter, r *http.Request, rout
 		// Handler has its own error configs - convert and create injector for them
 		errorConfigs, err := convertErrorConfigs(handler.Errors)
 		if err != nil {
-			log.Printf("Error converting handler error configs: %v", err)
+			s.logger.Error("failed to convert handler error configs", "handler", handler.Name, "error", err)
 		} else {
 			handlerErrors := service.NewErrorInjector(errorConfigs)
 			if errCfg := handlerErrors.ShouldInject(); errCfg != nil {
@@ -621,14 +627,14 @@ func (s *HTTPService) handleRequest(w http.ResponseWriter, r *http.Request, rout
 	}
 
 	// Build evaluation context from request
-	// For now, we don't extract path params (future enhancement)
-	evalCtx := config.BuildEvalContext(r, nil, s.config.ServiceVars)
+	pathParams := ExtractParams(route, r)
+	evalCtx := config.BuildEvalContext(r, pathParams, s.config.ServiceVars)
 
 	// Execute steps if present
 	if len(handler.Steps) > 0 {
 		executor := step.NewExecutor(handler.Steps)
 		if err := executor.Execute(r.Context(), evalCtx); err != nil {
-			log.Printf("Error executing steps: %v", err)
+			s.logger.Error("step execution failed", "handler", handler.Name, "error", err)
 			metrics.RecordError(s.name, handler.Name, "step_failed")
 			span.RecordError(err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -645,7 +651,7 @@ func (s *HTTPService) handleRequest(w http.ResponseWriter, r *http.Request, rout
 	if resp.BodyExpr != nil {
 		value, diags := resp.BodyExpr.Value(evalCtx)
 		if diags.HasErrors() {
-			log.Printf("Error evaluating response body: %v", diags.Error())
+			s.logger.Error("failed to evaluate response body", "handler", handler.Name, "error", diags.Error())
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Header().Set("Content-Type", "application/json")
 			w.Write([]byte(fmt.Sprintf(`{"error":"response evaluation failed: %s"}`, diags.Error())))
@@ -666,7 +672,7 @@ func (s *HTTPService) handleRequest(w http.ResponseWriter, r *http.Request, rout
 	if resp.HeadersExpr != nil {
 		headersVal, diags := resp.HeadersExpr.Value(evalCtx)
 		if diags.HasErrors() {
-			log.Printf("Error evaluating response headers: %v", diags.Error())
+			s.logger.Error("failed to evaluate response headers", "handler", handler.Name, "error", diags.Error())
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Header().Set("Content-Type", "application/json")
 			w.Write([]byte(fmt.Sprintf(`{"error":"header evaluation failed: %s"}`, diags.Error())))
@@ -716,7 +722,7 @@ func getLogLevel(path string, status int) string {
 
 // init registers the HTTP service factory
 func init() {
-	service.RegisterFactory("http", func(cfg *config.ServiceConfig) (service.Service, error) {
-		return NewHTTPService(cfg)
+	service.RegisterFactory("http", func(cfg *config.ServiceConfig, logger *slog.Logger) (service.Service, error) {
+		return NewHTTPService(cfg, logger)
 	})
 }

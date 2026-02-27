@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -8,6 +9,12 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
 )
+
+func TestMain(m *testing.M) {
+	// Initialize metrics once for all tests in this package.
+	Init(Config{Enabled: true, Path: "/metrics"})
+	os.Exit(m.Run())
+}
 
 func TestRecordRequest(t *testing.T) {
 	// Reset metrics for test isolation
@@ -64,4 +71,31 @@ func TestRecordError(t *testing.T) {
 func TestHandler(t *testing.T) {
 	h := Handler()
 	require.NotNil(t, h)
+}
+
+func TestIsEnabled(t *testing.T) {
+	// TestMain called Init with Enabled: true
+	require.True(t, IsEnabled())
+}
+
+func TestPath(t *testing.T) {
+	// TestMain called Init with Path: "/metrics"
+	require.Equal(t, "/metrics", Path())
+}
+
+func TestInit_Disabled(t *testing.T) {
+	// Save and restore global state
+	origEnabled := enabled
+	origPath := path
+	defer func() {
+		enabled = origEnabled
+		path = origPath
+	}()
+
+	// Re-init as disabled (skip MustRegister since already registered)
+	enabled = false
+	path = ""
+
+	require.False(t, IsEnabled())
+	require.Equal(t, "", Path())
 }

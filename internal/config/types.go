@@ -10,6 +10,9 @@ type Config struct {
 	Heimdall *HeimdallConfig `hcl:"heimdall,block"`
 	Services []*ServiceConfig `hcl:"service,block"`
 	CLI      *CLIConfig       `hcl:"cli,block"`
+	Logging  *LoggingConfig   `hcl:"logging,block"`
+	Tracing  *TracingConfig   `hcl:"tracing,block"`
+	Metrics  *MetricsConfig   `hcl:"metrics,block"`
 	Body     hcl.Body         `hcl:",remain"`
 }
 
@@ -18,6 +21,30 @@ type HeimdallConfig struct {
 	Address  string   `hcl:"address"`
 	NodeName string   `hcl:"node_name,optional"` // Optional custom node name (defaults to hostname)
 	Body     hcl.Body `hcl:",remain"`
+}
+
+// LoggingConfig configures structured logging output
+type LoggingConfig struct {
+	Level  *string  `hcl:"level,optional"`
+	Format *string  `hcl:"format,optional"`
+	Output *string  `hcl:"output,optional"`
+	Body   hcl.Body `hcl:",remain"`
+}
+
+// TracingConfig configures OpenTelemetry tracing
+type TracingConfig struct {
+	Enabled  *bool    `hcl:"enabled,optional"`
+	Endpoint *string  `hcl:"endpoint,optional"`
+	Sampler  *string  `hcl:"sampler,optional"`
+	Ratio    *float64 `hcl:"ratio,optional"`
+	Body     hcl.Body `hcl:",remain"`
+}
+
+// MetricsConfig configures Prometheus metrics
+type MetricsConfig struct {
+	Enabled *bool    `hcl:"enabled,optional"`
+	Path    *string  `hcl:"path,optional"`
+	Body    hcl.Body `hcl:",remain"`
 }
 
 // ServiceConfig defines a service instance
@@ -41,6 +68,7 @@ type ServiceConfig struct {
 	Resources       []*ResourceConfig  `hcl:"resource,block"`
 	Tables          []*TableConfig     `hcl:"table,block"`               // For postgres service
 	Queries         []*QueryConfig     `hcl:"query,block"`               // For postgres service
+	Logging         *LoggingConfig     `hcl:"logging,block"`
 	Body            hcl.Body           `hcl:",remain"`
 
 	// Populated by parser (not from HCL)

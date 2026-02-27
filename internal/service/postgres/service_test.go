@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"log/slog"
 	"net"
 	"testing"
 	"time"
@@ -20,7 +21,7 @@ func TestNewPostgresService_Minimal(t *testing.T) {
 		Listen: "127.0.0.1:0",
 	}
 
-	svc, err := NewPostgresService(cfg)
+	svc, err := NewPostgresService(cfg, slog.Default())
 	require.NoError(t, err)
 	require.Equal(t, "testdb", svc.Name())
 	require.Equal(t, "postgres", svc.Type())
@@ -50,7 +51,7 @@ func TestNewPostgresService_WithTables(t *testing.T) {
 		},
 	}
 
-	svc, err := NewPostgresService(cfg)
+	svc, err := NewPostgresService(cfg, slog.Default())
 	require.NoError(t, err)
 
 	// Verify table data was generated
@@ -62,7 +63,7 @@ func TestNewPostgresService_WithTables(t *testing.T) {
 func startTestService(t *testing.T, cfg *config.ServiceConfig) (*PostgresService, string) {
 	t.Helper()
 
-	svc, err := NewPostgresService(cfg)
+	svc, err := NewPostgresService(cfg, slog.Default())
 	require.NoError(t, err)
 
 	ctx := context.Background()

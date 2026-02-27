@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"sync"
 
@@ -17,6 +17,7 @@ import (
 type TCPService struct {
 	name     string
 	config   *config.ServiceConfig
+	logger   *slog.Logger
 	matcher  *Matcher
 	listener net.Listener
 	wg       sync.WaitGroup
@@ -25,7 +26,7 @@ type TCPService struct {
 }
 
 // NewTCPService creates a new TCP service
-func NewTCPService(cfg *config.ServiceConfig) (*TCPService, error) {
+func NewTCPService(cfg *config.ServiceConfig, logger *slog.Logger) (*TCPService, error) {
 	// Create matcher
 	matcher := NewMatcher()
 
@@ -55,6 +56,7 @@ func NewTCPService(cfg *config.ServiceConfig) (*TCPService, error) {
 	svc := &TCPService{
 		name:    cfg.Name,
 		config:  cfg,
+		logger:  logger,
 		matcher: matcher,
 	}
 
@@ -111,7 +113,7 @@ func (s *TCPService) Start(ctx context.Context) error {
 	if s.config.TLS != nil {
 		proto = "TCP (TLS)"
 	}
-	log.Printf("%s service %q listening on %s", proto, s.name, s.config.Listen)
+	s.logger.Info("service listening", "proto", proto, "addr", s.config.Listen)
 	return nil
 }
 
@@ -121,7 +123,7 @@ func (s *TCPService) Stop(ctx context.Context) error {
 		return nil
 	}
 
-	log.Printf("Stopping TCP service %q", s.name)
+	s.logger.Info("stopping service")
 
 	// Close listener to stop accepting new connections
 	if err := s.listener.Close(); err != nil {
@@ -149,7 +151,7 @@ func (s *TCPService) acceptLoop() {
 			case <-s.ctx.Done():
 				return
 			default:
-				log.Printf("TCP accept error: %v", err)
+				s.logger.Error("accept error", "error", err)
 				continue
 			}
 		}
@@ -185,7 +187,7 @@ func (s *TCPService) handleConnection(conn net.Conn) {
 		// Send response
 		if response != "" {
 			if _, err := conn.Write([]byte(response)); err != nil {
-				log.Printf("TCP write error: %v", err)
+				s.logger.Error("write error", "error", err)
 				return
 			}
 		}
@@ -197,14 +199,14 @@ func (s *TCPService) handleConnection(conn net.Conn) {
 		case <-s.ctx.Done():
 			return
 		default:
-			log.Printf("TCP scan error: %v", err)
+			s.logger.Error("scan error", "error", err)
 		}
 	}
 }
 
 // init registers the TCP service factory
 func init() {
-	service.RegisterFactory("tcp", func(cfg *config.ServiceConfig) (service.Service, error) {
-		return NewTCPService(cfg)
+	service.RegisterFactory("tcp", func(cfg *config.ServiceConfig, logger *slog.Logger) (service.Service, error) {
+		return NewTCPService(cfg, logger)
 	})
 }

@@ -2,6 +2,7 @@ package connect
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -69,7 +70,7 @@ service "user-api" {
 	svcCfg := cfg.Services[0]
 	require.Len(t, svcCfg.Handlers, 3) // SearchUsers, GetUserStats, Echo
 
-	svc, err := NewConnectService(svcCfg)
+	svc, err := NewConnectService(svcCfg, slog.Default())
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 	require.Len(t, svc.customHandlers, 3)
@@ -120,7 +121,7 @@ service "user-api" {
 	svcCfg := cfg.Services[0]
 	require.Len(t, svcCfg.Handlers, 2) // GetUser, ListUsers overrides
 
-	svc, err := NewConnectService(svcCfg)
+	svc, err := NewConnectService(svcCfg, slog.Default())
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
@@ -170,7 +171,7 @@ func TestConnectServiceWithCustomMethods(t *testing.T) {
 		},
 	}
 
-	svc, err := NewConnectService(cfg)
+	svc, err := NewConnectService(cfg, slog.Default())
 	require.NoError(t, err)
 	require.Len(t, svc.customHandlers, 1)
 	require.Len(t, svc.resourceHandlers, 1)

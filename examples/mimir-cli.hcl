@@ -1,7 +1,7 @@
-# Example: Generate a fake Mimir (Vault-like) CLI
+# Fake Mimir (Vault-like) CLI
 #
-# Build: loki build cli -c examples/mimir-cli.hcl -o mimir
-# Usage: ./mimir kv get mysecret
+# Start the backend: loki server -c examples/mimir-server.hcl
+# Usage: loki cli -c examples/mimir-cli.hcl -- kv get mysecret
 
 cli "mimir" {
   description = "Interact with Mimir secrets engine"

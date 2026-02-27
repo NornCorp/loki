@@ -473,9 +473,45 @@ tls {
 
 TLS works on all service types: `http`, `connect`, `proxy`, `tcp`, and `postgres`. For PostgreSQL, TLS is negotiated via the standard SSL handshake -- clients that request SSL will be upgraded transparently.
 
-### Metrics & Tracing
+### Observability
 
-Loki exposes Prometheus metrics at `/metrics` on every HTTP service:
+Configure logging, tracing, and metrics via top-level HCL blocks. All are optional -- defaults match the previous behavior.
+
+```hcl
+logging {
+  level  = "info"      # debug | info | warn | error (default: "info")
+  format = "text"      # text | json (default: "text")
+  output = "stderr"    # stdout | stderr | file path (default: "stderr")
+}
+
+tracing {
+  enabled  = true              # default: true
+  endpoint = "localhost:4318"  # OTLP HTTP endpoint; OTEL_EXPORTER_OTLP_ENDPOINT env var works as fallback
+  sampler  = "always_on"       # always_on | always_off | parent_based | ratio (default: "always_on")
+  ratio    = 0.5               # only used when sampler = "ratio"
+}
+
+metrics {
+  enabled = true        # default: true
+  path    = "/metrics"  # Prometheus scrape path (default: "/metrics")
+}
+```
+
+Per-service logging overrides are supported inside `service` blocks:
+
+```hcl
+service "noisy-api" {
+  type   = "http"
+  listen = "0.0.0.0:8080"
+
+  logging {
+    level  = "warn"
+    output = "/var/log/noisy-api.log"
+  }
+}
+```
+
+Prometheus metrics exposed on HTTP services:
 
 ```
 loki_requests_total{service, handler, status}
@@ -484,18 +520,7 @@ loki_step_duration_seconds{service, handler, step}
 loki_errors_total{service, handler, type}
 ```
 
-```bash
-curl http://localhost:8080/metrics
-```
-
-OpenTelemetry tracing is enabled via standard environment variables:
-
-```bash
-export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
-loki server -c config.hcl
-```
-
-Traces include spans for request handling and step execution, with context propagated through the step chain.
+Traces include spans for request handling and step execution, with context propagated through the step chain. See [examples/observability.hcl](examples/observability.hcl) for a full demo.
 
 ### Heimdall Integration
 
@@ -620,6 +645,7 @@ Expressions in CLI configs support `flag.*` for flags, `arg.*` for positional ar
 | [connect-rpc.hcl](examples/connect-rpc.hcl) | Connect-RPC with resources, custom methods, and steps |
 | [proxy-reverse.hcl](examples/proxy-reverse.hcl) | Reverse proxy with header transforms |
 | [https.hcl](examples/https.hcl) | HTTPS with auto-generated self-signed certificate |
+| [observability.hcl](examples/observability.hcl) | Logging, tracing, and metrics configuration |
 | [mimir-cli.hcl](examples/mimir-cli.hcl) | CLI runtime: fake Vault-like CLI tool |
 
 ## Project Structure
@@ -644,6 +670,7 @@ loki/
 │   ├── fake/           Fake data generation (gofakeit)
 │   ├── step/           Service chaining execution
 │   ├── cligen/         CLI runtime interpreter
+│   ├── logging/        Structured logging (slog) setup
 │   ├── metrics/        Prometheus metrics
 │   ├── tracing/        OpenTelemetry tracing
 │   ├── serf/           Heimdall gossip mesh client

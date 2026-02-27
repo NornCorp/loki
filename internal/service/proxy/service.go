@@ -3,7 +3,7 @@ package proxy
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -57,6 +57,7 @@ func (r *proxyRouter) match(method, path string) http.HandlerFunc {
 type ProxyService struct {
 	name         string
 	config       *config.ServiceConfig
+	logger       *slog.Logger
 	server       *http.Server
 	listener     net.Listener
 	proxy        *httputil.ReverseProxy
@@ -67,7 +68,7 @@ type ProxyService struct {
 }
 
 // NewProxyService creates a new proxy service
-func NewProxyService(cfg *config.ServiceConfig) (*ProxyService, error) {
+func NewProxyService(cfg *config.ServiceConfig, logger *slog.Logger) (*ProxyService, error) {
 	if cfg.TargetExpr == nil {
 		return nil, fmt.Errorf("target is required for proxy service")
 	}
@@ -119,6 +120,7 @@ func NewProxyService(cfg *config.ServiceConfig) (*ProxyService, error) {
 	svc := &ProxyService{
 		name:        cfg.Name,
 		config:      cfg,
+		logger:      logger,
 		proxy:       proxy,
 		upstreamURL: upstreamURL,
 		requestXfm:  requestXfm,
@@ -268,9 +270,9 @@ func (s *ProxyService) Start(ctx context.Context) error {
 		proto = "Proxy (TLS)"
 	}
 	go func() {
-		log.Printf("%s service %q listening on %s (target: %s)", proto, s.name, s.config.Listen, s.upstreamURL)
+		s.logger.Info("service listening", "proto", proto, "addr", s.config.Listen, "target", s.upstreamURL.String())
 		if err := s.server.Serve(listener); err != nil && err != http.ErrServerClosed {
-			log.Printf("Proxy service %q error: %v", s.name, err)
+			s.logger.Error("server error", "error", err)
 		}
 	}()
 
@@ -283,7 +285,7 @@ func (s *ProxyService) Stop(ctx context.Context) error {
 		return nil
 	}
 
-	log.Printf("Stopping proxy service %q", s.name)
+	s.logger.Info("stopping service")
 	return s.server.Shutdown(ctx)
 }
 
@@ -300,7 +302,7 @@ func parseRoute(route string) (method, path string, ok bool) {
 
 // init registers the proxy service factory
 func init() {
-	service.RegisterFactory("proxy", func(cfg *config.ServiceConfig) (service.Service, error) {
-		return NewProxyService(cfg)
+	service.RegisterFactory("proxy", func(cfg *config.ServiceConfig, logger *slog.Logger) (service.Service, error) {
+		return NewProxyService(cfg, logger)
 	})
 }

@@ -3,7 +3,7 @@ package tracing
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
@@ -16,8 +16,11 @@ import (
 
 // Config holds tracing configuration.
 type Config struct {
+	Enabled     bool
 	ServiceName string
-	Endpoint    string // OTLP HTTP endpoint (e.g. "localhost:4318")
+	Endpoint    string  // OTLP HTTP endpoint (e.g. "localhost:4318")
+	Sampler     string  // "always_on", "always_off", "parent_based", "ratio"
+	Ratio       float64 // only used when Sampler = "ratio"
 }
 
 // Provider wraps the OTel TracerProvider for lifecycle management.
@@ -26,20 +29,18 @@ type Provider struct {
 }
 
 // Init initializes the OpenTelemetry tracing provider.
+// If cfg.Enabled is false, returns a nil *Provider (the nil-safe Shutdown handles this).
 // If endpoint is empty, it falls back to OTEL_EXPORTER_OTLP_ENDPOINT env var.
-// Returns a no-op provider if no endpoint is configured.
 func Init(ctx context.Context, cfg Config) (*Provider, error) {
-	// Create resource
-	res, err := resource.Merge(
-		resource.Default(),
-		resource.NewWithAttributes(
-			semconv.SchemaURL,
-			semconv.ServiceNameKey.String(cfg.ServiceName),
-		),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create resource: %w", err)
+	if !cfg.Enabled {
+		return nil, nil
 	}
+
+	// Create resource with service name
+	res := resource.NewWithAttributes(
+		semconv.SchemaURL,
+		semconv.ServiceNameKey.String(cfg.ServiceName),
+	)
 
 	// Create OTLP HTTP exporter
 	opts := []otlptracehttp.Option{}
@@ -53,9 +54,13 @@ func Init(ctx context.Context, cfg Config) (*Provider, error) {
 		return nil, fmt.Errorf("failed to create trace exporter: %w", err)
 	}
 
+	// Map sampler string to SDK sampler
+	sampler := samplerFromConfig(cfg.Sampler, cfg.Ratio)
+
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
 		sdktrace.WithResource(res),
+		sdktrace.WithSampler(sampler),
 	)
 
 	// Set global provider and propagator
@@ -65,8 +70,22 @@ func Init(ctx context.Context, cfg Config) (*Provider, error) {
 		propagation.Baggage{},
 	))
 
-	log.Printf("OpenTelemetry tracing initialized (service=%s)", cfg.ServiceName)
+	slog.Info("tracing initialized", "service", cfg.ServiceName, "sampler", cfg.Sampler)
 	return &Provider{tp: tp}, nil
+}
+
+// samplerFromConfig maps a sampler name to an SDK sampler.
+func samplerFromConfig(name string, ratio float64) sdktrace.Sampler {
+	switch name {
+	case "always_off":
+		return sdktrace.NeverSample()
+	case "parent_based":
+		return sdktrace.ParentBased(sdktrace.AlwaysSample())
+	case "ratio":
+		return sdktrace.TraceIDRatioBased(ratio)
+	default: // "always_on" or empty
+		return sdktrace.AlwaysSample()
+	}
 }
 
 // Shutdown flushes and shuts down the tracing provider.

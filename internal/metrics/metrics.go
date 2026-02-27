@@ -45,8 +45,36 @@ var (
 	)
 )
 
-func init() {
+// Config holds metrics configuration.
+type Config struct {
+	Enabled bool
+	Path    string // Prometheus scrape path (default "/metrics")
+}
+
+var (
+	enabled bool
+	path    string
+)
+
+// Init explicitly registers Prometheus collectors and stores config.
+// Must be called before any metrics recording or serving.
+func Init(cfg Config) {
+	enabled = cfg.Enabled
+	path = cfg.Path
+	if !enabled {
+		return
+	}
 	prometheus.MustRegister(RequestsTotal, RequestDuration, StepDuration, ErrorsTotal)
+}
+
+// IsEnabled returns whether metrics collection is active.
+func IsEnabled() bool {
+	return enabled
+}
+
+// Path returns the configured Prometheus scrape path.
+func Path() string {
+	return path
 }
 
 // RecordRequest records metrics for a completed request.

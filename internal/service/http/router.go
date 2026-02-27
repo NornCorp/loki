@@ -51,18 +51,43 @@ func (r *Router) Match(req *http.Request) (*Route, bool) {
 
 // matchRoute checks if a route matches a request
 func (r *Router) matchRoute(route *Route, req *http.Request) bool {
-	// Check method
 	if route.Method != "" && route.Method != req.Method {
 		return false
 	}
 
-	// Check path - exact match for now
-	// Future: support path parameters like /users/:id
-	if route.Path != req.URL.Path {
-		return false
+	// Fast path: no params, exact match
+	if !strings.Contains(route.Path, ":") {
+		return route.Path == req.URL.Path
 	}
 
+	// Segment-by-segment matching with :param support
+	routeParts := strings.Split(route.Path, "/")
+	reqParts := strings.Split(req.URL.Path, "/")
+	if len(routeParts) != len(reqParts) {
+		return false
+	}
+	for i, rp := range routeParts {
+		if strings.HasPrefix(rp, ":") {
+			continue
+		}
+		if rp != reqParts[i] {
+			return false
+		}
+	}
 	return true
+}
+
+// ExtractParams extracts path parameter values from a matched route.
+func ExtractParams(route *Route, req *http.Request) map[string]string {
+	params := make(map[string]string)
+	routeParts := strings.Split(route.Path, "/")
+	reqParts := strings.Split(req.URL.Path, "/")
+	for i, rp := range routeParts {
+		if strings.HasPrefix(rp, ":") && i < len(reqParts) {
+			params[rp[1:]] = reqParts[i]
+		}
+	}
+	return params
 }
 
 // parseRoute parses a route string like "GET /hello" into method and path

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"go/format"
-	"log"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -43,7 +43,7 @@ func Generate(cfg *config.CLIConfig, outputPath string) error {
 	}
 
 	// Run go mod tidy
-	log.Printf("Resolving dependencies...")
+	slog.Info("resolving dependencies")
 	tidyCmd := exec.Command("go", "mod", "tidy")
 	tidyCmd.Dir = tmpDir
 	if out, err := tidyCmd.CombinedOutput(); err != nil {
@@ -57,7 +57,7 @@ func Generate(cfg *config.CLIConfig, outputPath string) error {
 	}
 
 	// Build binary
-	log.Printf("Compiling %s...", cfg.Name)
+	slog.Info("compiling", "name", cfg.Name)
 	buildCmd := exec.Command("go", "build", "-o", absOutput, ".")
 	buildCmd.Dir = tmpDir
 	if out, err := buildCmd.CombinedOutput(); err != nil {

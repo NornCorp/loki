@@ -178,6 +178,91 @@ func TestRouter_Match(t *testing.T) {
 	}
 }
 
+func TestRouter_Match_PathParams(t *testing.T) {
+	router := NewRouter()
+
+	handlers := []*config.HandlerConfig{
+		{Name: "kv-get", Route: "GET /v1/secret/data/:path"},
+		{Name: "kv-list", Route: "GET /v1/secret/metadata/:path"},
+		{Name: "health", Route: "GET /v1/sys/health"},
+	}
+	for _, h := range handlers {
+		require.NoError(t, router.AddHandler(h))
+	}
+
+	tests := []struct {
+		name        string
+		method      string
+		path        string
+		shouldMatch bool
+		wantHandler string
+	}{
+		{
+			name:        "exact match health",
+			method:      "GET",
+			path:        "/v1/sys/health",
+			shouldMatch: true,
+			wantHandler: "health",
+		},
+		{
+			name:        "param match kv-get",
+			method:      "GET",
+			path:        "/v1/secret/data/mysecret",
+			shouldMatch: true,
+			wantHandler: "kv-get",
+		},
+		{
+			name:        "param match kv-list",
+			method:      "GET",
+			path:        "/v1/secret/metadata/keys",
+			shouldMatch: true,
+			wantHandler: "kv-list",
+		},
+		{
+			name:        "wrong method on param route",
+			method:      "POST",
+			path:        "/v1/secret/data/test",
+			shouldMatch: false,
+		},
+		{
+			name:        "too few segments",
+			method:      "GET",
+			path:        "/v1/secret/data",
+			shouldMatch: false,
+		},
+		{
+			name:        "too many segments",
+			method:      "GET",
+			path:        "/v1/secret/data/a/b",
+			shouldMatch: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			route, ok := router.Match(req)
+			require.Equal(t, tt.shouldMatch, ok)
+			if tt.shouldMatch {
+				require.Equal(t, tt.wantHandler, route.Handler.Name)
+			}
+		})
+	}
+}
+
+func TestExtractParams(t *testing.T) {
+	route := &Route{Method: "GET", Path: "/v1/secret/data/:path"}
+	req := httptest.NewRequest("GET", "/v1/secret/data/mysecret", nil)
+	params := ExtractParams(route, req)
+	require.Equal(t, "mysecret", params["path"])
+
+	route2 := &Route{Method: "GET", Path: "/users/:id/posts/:postid"}
+	req2 := httptest.NewRequest("GET", "/users/42/posts/99", nil)
+	params2 := ExtractParams(route2, req2)
+	require.Equal(t, "42", params2["id"])
+	require.Equal(t, "99", params2["postid"])
+}
+
 func TestRouter_Match_EmptyRouter(t *testing.T) {
 	router := NewRouter()
 	req := httptest.NewRequest("GET", "/test", nil)

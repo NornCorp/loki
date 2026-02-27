@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"testing"
 	"time"
@@ -30,7 +31,7 @@ func TestNewConnectService(t *testing.T) {
 		},
 	}
 
-	svc, err := NewConnectService(cfg)
+	svc, err := NewConnectService(cfg, slog.Default())
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 	require.Equal(t, "test-api", svc.Name())
@@ -45,7 +46,7 @@ func TestNewConnectServiceNoPack(t *testing.T) {
 		Listen: "0.0.0.0:9090",
 	}
 
-	_, err := NewConnectService(cfg)
+	_, err := NewConnectService(cfg, slog.Default())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "package is required")
 }
@@ -68,7 +69,7 @@ func TestConnectServiceStartStop(t *testing.T) {
 		},
 	}
 
-	svc, err := NewConnectService(cfg)
+	svc, err := NewConnectService(cfg, slog.Default())
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -104,7 +105,7 @@ func TestConnectServiceCRUD(t *testing.T) {
 		},
 	}
 
-	svc, err := NewConnectService(cfg)
+	svc, err := NewConnectService(cfg, slog.Default())
 	require.NoError(t, err)
 
 	ctx := context.Background()

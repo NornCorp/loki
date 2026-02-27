@@ -3,7 +3,7 @@ package connect
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"time"
@@ -19,6 +19,7 @@ import (
 type ConnectService struct {
 	name             string
 	config           *config.ServiceConfig
+	logger           *slog.Logger
 	resourceStore    *resource.Store
 	resourceHandlers []*ResourceHandler
 	customHandlers   []*CustomMethodHandler
@@ -28,7 +29,7 @@ type ConnectService struct {
 }
 
 // NewConnectService creates a new Connect-RPC service
-func NewConnectService(cfg *config.ServiceConfig) (*ConnectService, error) {
+func NewConnectService(cfg *config.ServiceConfig, logger *slog.Logger) (*ConnectService, error) {
 	if cfg.Package == "" {
 		return nil, fmt.Errorf("package is required for connect service")
 	}
@@ -59,6 +60,7 @@ func NewConnectService(cfg *config.ServiceConfig) (*ConnectService, error) {
 	svc := &ConnectService{
 		name:             cfg.Name,
 		config:           cfg,
+		logger:           logger,
 		resourceStore:    resourceStore,
 		resourceHandlers: resourceHandlers,
 		mux:              http.NewServeMux(),
@@ -96,7 +98,7 @@ func NewConnectService(cfg *config.ServiceConfig) (*ConnectService, error) {
 	for _, mh := range customHandlers {
 		path, handler := mh.RegisterHandler()
 		svc.mux.HandleFunc(path, handler)
-		log.Printf("Registered custom method at path: %s", path)
+		svc.logger.Info("registered custom method", "path", path)
 	}
 
 	return svc, nil
@@ -149,9 +151,9 @@ func (s *ConnectService) Start(ctx context.Context) error {
 		proto = "Connect-RPC (TLS)"
 	}
 	go func() {
-		log.Printf("%s service %q listening on %s", proto, s.name, s.config.Listen)
+		s.logger.Info("service listening", "proto", proto, "addr", s.config.Listen)
 		if err := s.server.Serve(listener); err != nil && err != http.ErrServerClosed {
-			log.Printf("Connect-RPC server error: %v", err)
+			s.logger.Error("server error", "error", err)
 		}
 	}()
 
@@ -164,7 +166,7 @@ func (s *ConnectService) Stop(ctx context.Context) error {
 		return nil
 	}
 
-	log.Printf("Stopping Connect-RPC service %q", s.name)
+	s.logger.Info("stopping service")
 
 	// Use a timeout context for shutdown
 	shutdownCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -179,7 +181,7 @@ func (s *ConnectService) Stop(ctx context.Context) error {
 
 // init registers the Connect service factory
 func init() {
-	service.RegisterFactory("connect", func(cfg *config.ServiceConfig) (service.Service, error) {
-		return NewConnectService(cfg)
+	service.RegisterFactory("connect", func(cfg *config.ServiceConfig, logger *slog.Logger) (service.Service, error) {
+		return NewConnectService(cfg, logger)
 	})
 }
