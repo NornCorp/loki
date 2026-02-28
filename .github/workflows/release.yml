@@ -24,11 +24,7 @@ jobs:
           - goos: linux
             goarch: arm64
           - goos: darwin
-            goarch: amd64
-          - goos: darwin
             goarch: arm64
-          - goos: windows
-            goarch: amd64
     steps:
       - uses: actions/checkout@v4
 
@@ -42,10 +38,8 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
         run: |
-          ext=""
-          if [ "$GOOS" = "windows" ]; then ext=".exe"; fi
           go build -trimpath -ldflags="-s -w" \
-            -o loki-${{ matrix.goos }}-${{ matrix.goarch }}${ext} \
+            -o loki-${{ matrix.goos }}-${{ matrix.goarch }} \
             ./cmd/loki
 
       - uses: actions/upload-artifact@v4
