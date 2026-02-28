@@ -1,4 +1,4 @@
-package cli
+package cmd
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/norncorp/loki/internal/config"
+	"github.com/norncorp/loki/internal/config/parser"
 	"github.com/norncorp/loki/internal/logging"
 	"github.com/norncorp/loki/internal/metrics"
 	"github.com/norncorp/loki/internal/service"
@@ -31,7 +31,7 @@ var serverCmd = &cobra.Command{
 var serverConfigPath string
 
 func init() {
-	serverCmd.Flags().StringVarP(&serverConfigPath, "config", "c", "", "path to configuration file (required)")
+	serverCmd.Flags().StringVarP(&serverConfigPath, "config", "c", "", "path to configuration file or directory (required)")
 	serverCmd.MarkFlagRequired("config")
 	rootCmd.AddCommand(serverCmd)
 }
@@ -43,13 +43,13 @@ func runServer(cmd *cobra.Command, args []string) error {
 	}
 
 	// Parse config
-	cfg, err := config.ParseFile(serverConfigPath)
+	cfg, err := parser.ParseFile(serverConfigPath)
 	if err != nil {
 		return fmt.Errorf("failed to parse config: %w", err)
 	}
 
 	// Validate config
-	if err := config.Validate(cfg); err != nil {
+	if err := parser.Validate(cfg); err != nil {
 		return fmt.Errorf("invalid config: %w", err)
 	}
 
@@ -72,16 +72,16 @@ func runServer(cmd *cobra.Command, args []string) error {
 	var serviceLogCleanups []func()
 	for _, svc := range cfg.Services {
 		var override *logging.Config
-		if svc.Logging != nil {
-			resolved := logging.ResolveConfig(logCfg, svc.Logging)
+		if svc.ServiceLogging() != nil {
+			resolved := logging.ResolveConfig(logCfg, svc.ServiceLogging())
 			override = &resolved
 		}
-		logger, cleanup, err := logging.ForService(svc.Name, logCfg, override)
+		logger, cleanup, err := logging.ForService(svc.ServiceName(), logCfg, override)
 		if err != nil {
-			slog.Error("failed to create service logger", "service", svc.Name, "error", err)
+			slog.Error("failed to create service logger", "service", svc.ServiceName(), "error", err)
 			os.Exit(1)
 		}
-		serviceLoggers[svc.Name] = logger
+		serviceLoggers[svc.ServiceName()] = logger
 		serviceLogCleanups = append(serviceLogCleanups, cleanup)
 	}
 	defer func() {

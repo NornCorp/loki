@@ -39,14 +39,14 @@ type RequestLogProvider interface {
 
 // MetaService implements the LokiMetaService RPC
 type MetaService struct {
-	services        []*config.ServiceConfig
-	nodeName        string
-	serfClient      SerfClient
+	services           []config.Service
+	nodeName           string
+	serfClient         SerfClient
 	requestLogProvider RequestLogProvider
 }
 
 // NewMetaService creates a new MetaService
-func NewMetaService(services []*config.ServiceConfig, serfClient SerfClient, logProvider RequestLogProvider) *MetaService {
+func NewMetaService(services []config.Service, serfClient SerfClient, logProvider RequestLogProvider) *MetaService {
 	return &MetaService{
 		services:           services,
 		serfClient:         serfClient,
@@ -77,19 +77,20 @@ func (s *MetaService) GetResources(
 
 	for _, svc := range s.services {
 		// Filter by service name if requested
-		if req.Msg.ServiceName != "" && svc.Name != req.Msg.ServiceName {
+		if req.Msg.ServiceName != "" && svc.ServiceName() != req.Msg.ServiceName {
 			continue
 		}
 
 		// Skip services with no resources
-		if len(svc.Resources) == 0 {
+		svcResources := svc.GetResources()
+		if len(svcResources) == 0 {
 			continue
 		}
 
 		// Convert resources to proto format
 		pluralizer := pluralize.NewClient()
-		resources := make([]*metav1.Resource, 0, len(svc.Resources))
-		for _, res := range svc.Resources {
+		resources := make([]*metav1.Resource, 0, len(svcResources))
+		for _, res := range svcResources {
 			fields := make([]*metav1.Field, 0, len(res.Fields))
 			for _, field := range res.Fields {
 				fields = append(fields, &metav1.Field{
@@ -110,7 +111,7 @@ func (s *MetaService) GetResources(
 		}
 
 		serviceResources = append(serviceResources, &metav1.ServiceResources{
-			ServiceName: svc.Name,
+			ServiceName: svc.ServiceName(),
 			Resources:   resources,
 		})
 	}

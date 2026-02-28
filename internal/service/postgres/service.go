@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/norncorp/loki/internal/config"
+	configpg "github.com/norncorp/loki/internal/config/postgres"
 	"github.com/norncorp/loki/internal/fake"
 	"github.com/norncorp/loki/internal/resource"
 	"github.com/norncorp/loki/internal/service"
@@ -20,7 +21,7 @@ import (
 // PostgresService implements a fake PostgreSQL database service.
 type PostgresService struct {
 	name      string
-	config    *config.ServiceConfig
+	config    *configpg.Service
 	logger    *slog.Logger
 	auth      *Authenticator
 	matcher   *QueryMatcher
@@ -33,7 +34,7 @@ type PostgresService struct {
 }
 
 // NewPostgresService creates a new PostgreSQL service from config.
-func NewPostgresService(cfg *config.ServiceConfig, logger *slog.Logger) (*PostgresService, error) {
+func NewPostgresService(cfg *configpg.Service, logger *slog.Logger) (*PostgresService, error) {
 	// Setup authentication
 	var users map[string]string
 	var database string
@@ -139,10 +140,10 @@ func NewPostgresService(cfg *config.ServiceConfig, logger *slog.Logger) (*Postgr
 	}, nil
 }
 
-func (s *PostgresService) Name() string      { return s.name }
-func (s *PostgresService) Type() string      { return "postgres" }
-func (s *PostgresService) Address() string   { return s.config.Listen }
-func (s *PostgresService) Upstreams() []string { return s.config.InferredUpstreams }
+func (s *PostgresService) Name() string        { return s.name }
+func (s *PostgresService) Type() string        { return "postgres" }
+func (s *PostgresService) Address() string     { return s.config.Listen }
+func (s *PostgresService) Upstreams() []string { return s.config.Upstreams }
 
 // Start begins listening for PostgreSQL client connections.
 func (s *PostgresService) Start(ctx context.Context) error {
@@ -332,7 +333,11 @@ func (s *PostgresService) handleQuery(w io.Writer, query string) {
 }
 
 func init() {
-	service.RegisterFactory("postgres", func(cfg *config.ServiceConfig, logger *slog.Logger) (service.Service, error) {
-		return NewPostgresService(cfg, logger)
+	service.RegisterFactory("postgres", func(cfg config.Service, logger *slog.Logger) (service.Service, error) {
+		c, ok := cfg.(*configpg.Service)
+		if !ok {
+			return nil, fmt.Errorf("postgres: unexpected config type %T", cfg)
+		}
+		return NewPostgresService(c, logger)
 	})
 }

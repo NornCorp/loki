@@ -2,13 +2,12 @@ package config
 
 import (
 	"github.com/hashicorp/hcl/v2"
-	"github.com/zclconf/go-cty/cty"
 )
 
 // Config is the root configuration structure
 type Config struct {
 	Heimdall *HeimdallConfig `hcl:"heimdall,block"`
-	Services []*ServiceConfig `hcl:"service,block"`
+	Services []Service
 	CLI      *CLIConfig       `hcl:"cli,block"`
 	Logging  *LoggingConfig   `hcl:"logging,block"`
 	Tracing  *TracingConfig   `hcl:"tracing,block"`
@@ -47,35 +46,6 @@ type MetricsConfig struct {
 	Body    hcl.Body `hcl:",remain"`
 }
 
-// ServiceConfig defines a service instance
-type ServiceConfig struct {
-	Type            string             `hcl:"type,label"`
-	Name            string             `hcl:"name,label"`
-	Listen          string             `hcl:"listen"`
-	Package         string             `hcl:"package,optional"`          // For Connect-RPC service
-	TargetExpr      hcl.Expression     `hcl:"target,optional"`           // For proxy service (expression for service refs)
-	RequestHeaders  hcl.Expression     `hcl:"request_headers,optional"`  // For proxy service request header additions
-	ResponseHeaders hcl.Expression     `hcl:"response_headers,optional"` // For proxy service response header additions
-	CORS            *CORSConfig        `hcl:"cors,block"`                // For HTTP services
-	Static          *StaticConfig      `hcl:"static,block"`              // For HTTP services
-	Auth            *AuthConfig        `hcl:"auth,block"`                // For postgres service
-	TLS             *TLSConfig         `hcl:"tls,block"`
-	Timing          *TimingConfig      `hcl:"timing,block"`
-	Load            *LoadConfig        `hcl:"load,block"`                // For HTTP services
-	Errors          []*ErrorConfig     `hcl:"error,block"`
-	RateLimit       *RateLimitConfig   `hcl:"rate_limit,block"`
-	Handlers        []*HandlerConfig   `hcl:"handle,block"`
-	Resources       []*ResourceConfig  `hcl:"resource,block"`
-	Tables          []*TableConfig     `hcl:"table,block"`               // For postgres service
-	Queries         []*QueryConfig     `hcl:"query,block"`               // For postgres service
-	Logging         *LoggingConfig     `hcl:"logging,block"`
-	Body            hcl.Body           `hcl:",remain"`
-
-	// Populated by parser (not from HCL)
-	ServiceVars       map[string]cty.Value // service.* variables for expression evaluation
-	InferredUpstreams []string             // auto-inferred upstream dependencies
-}
-
 // HandlerConfig defines a request handler
 type HandlerConfig struct {
 	Name     string          `hcl:"name,label"`
@@ -86,7 +56,6 @@ type HandlerConfig struct {
 	RateLimit *RateLimitConfig `hcl:"rate_limit,block"`
 	Steps     []*StepConfig    `hcl:"step,block"`
 	Response *ResponseConfig `hcl:"response,block"`
-	Body     hcl.Body        `hcl:",remain"`
 }
 
 // StepConfig defines a step to execute before returning response
@@ -169,6 +138,14 @@ type StaticConfig struct {
 type TLSConfig struct {
 	Cert string   `hcl:"cert,optional"`
 	Key  string   `hcl:"key,optional"`
+	Body hcl.Body `hcl:",remain"`
+}
+
+// SpecConfig defines an OpenAPI spec to serve fake responses from
+type SpecConfig struct {
+	Path string   `hcl:"path"`
+	Rows *int     `hcl:"rows,optional"`
+	Seed *int64   `hcl:"seed,optional"`
 	Body hcl.Body `hcl:",remain"`
 }
 

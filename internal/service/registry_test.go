@@ -48,7 +48,7 @@ func TestRegistry_ConfigureHeimdall(t *testing.T) {
 			}
 			registry.Register(mockSvc)
 
-			err := registry.ConfigureHeimdall(tt.cfg, []*config.ServiceConfig{})
+			err := registry.ConfigureHeimdall(tt.cfg, []config.Service{})
 			if tt.wantErr {
 				require.Error(t, err)
 				if tt.errString != "" {
@@ -100,10 +100,10 @@ func TestRegistry_Services(t *testing.T) {
 
 // mockService is a mock implementation of the Service interface
 type mockService struct {
-	name    string
-	typ     string
-	started bool
-	stopped bool
+	name     string
+	typ      string
+	started  bool
+	stopped  bool
 	startErr error
 	stopErr  error
 }

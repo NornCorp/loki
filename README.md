@@ -27,7 +27,7 @@ curl http://localhost:8080/hello
 
 ## Configuration
 
-Loki uses HCL for configuration. A config file defines one or more services that Loki runs concurrently.
+Loki uses HCL for configuration. A config file defines one or more services that Loki runs concurrently. You can also pass a directory to `-c`, in which case all `*.hcl` files in it are loaded and merged (non-recursive, sorted by filename). This lets you split large configs into separate files (e.g. `01-logging.hcl`, `02-services.hcl`) while cross-file `service.*` references work as expected.
 
 ### Static Handlers
 
@@ -78,6 +78,58 @@ DELETE /users/:id    Delete a user
 ```
 
 The resource name is automatically pluralized for endpoint paths. See [docs/fake-data-types.md](docs/fake-data-types.md) for the full list of 70+ supported data types.
+
+### OpenAPI Spec
+
+Serve fake responses from an OpenAPI 3.x spec. Loki parses the spec at startup, generates mock JSON for each operation's response schema, and serves them on the matching routes.
+
+```hcl
+service "http" "pet-store" {
+  listen = "0.0.0.0:8080"
+
+  spec {
+    path = "./petstore.yaml"
+    rows = 10
+    seed = 42
+  }
+
+  timing {
+    p50 = "20ms"
+    p90 = "100ms"
+    p99 = "300ms"
+  }
+}
+```
+
+This reads the OpenAPI spec and auto-generates endpoints for every path + operation. Array responses contain `rows` items (default 10). Set `seed` for deterministic output across restarts.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `path` | string | (required) | Path to an OpenAPI 3.0 or 3.1 YAML/JSON spec file |
+| `rows` | int | 10 | Number of items in array responses |
+| `seed` | int | (random) | Random seed for deterministic mock data |
+
+Manual `handle` and `resource` blocks take priority over spec routes -- use them to override specific endpoints while the spec handles everything else.
+
+```hcl
+service "http" "pet-store" {
+  listen = "0.0.0.0:8080"
+
+  spec {
+    path = "./petstore.yaml"
+  }
+
+  # Override the list endpoint with custom behavior
+  handle "custom-list" {
+    route = "GET /pets"
+    response {
+      body = jsonencode({ custom = true })
+    }
+  }
+}
+```
+
+Service-level `timing`, `error`, `rate_limit`, and `cors` blocks apply to spec routes the same way they apply to regular handlers. See [examples/openapi-spec.hcl](examples/openapi-spec.hcl).
 
 ### Service Chaining (Steps)
 
@@ -542,6 +594,7 @@ Loki supports HCL expressions throughout the configuration:
 
 ```bash
 loki server -c config.hcl                          # Start services from a config file
+loki server -c config.d/                           # Load all *.hcl files from a directory
 loki validate -c config.hcl                        # Validate a config file without starting
 loki cli -c cli-config.hcl -- <args>               # Run a CLI defined in an HCL config
 ```
@@ -620,6 +673,7 @@ Expressions in CLI configs support `flag.*` for flags, `arg.*` for positional ar
 |------|-------------|
 | [http-basic.hcl](examples/http-basic.hcl) | Minimal HTTP service with static handlers |
 | [http-resources.hcl](examples/http-resources.hcl) | Auto-generated CRUD with fake data |
+| [openapi-spec.hcl](examples/openapi-spec.hcl) | Serve fake responses from an OpenAPI spec |
 | [http-fault-injection.hcl](examples/http-fault-injection.hcl) | Latency and error injection at service and handler level |
 | [http-gateway.hcl](examples/http-gateway.hcl) | Service chaining with steps and Heimdall |
 | [multi-service-mesh.hcl](examples/multi-service-mesh.hcl) | Full multi-service topology |

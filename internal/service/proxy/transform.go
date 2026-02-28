@@ -12,17 +12,21 @@ type Transform struct {
 	AddHeaders map[string]string
 }
 
-// parseHeadersExpr evaluates an HCL expression to a map of header key-value pairs
+// parseHeadersExpr evaluates an HCL expression to a map of header key-value pairs.
+// Returns nil if the expression evaluates to null (absent optional attribute).
 func parseHeadersExpr(expr hcl.Expression, evalCtx *hcl.EvalContext) (*Transform, error) {
-	xfm := &Transform{
-		AddHeaders: make(map[string]string),
-	}
-
 	headersVal, diags := expr.Value(evalCtx)
 	if diags.HasErrors() {
 		return nil, fmt.Errorf("failed to evaluate headers: %s", diags.Error())
 	}
 
+	if headersVal.IsNull() {
+		return nil, nil
+	}
+
+	xfm := &Transform{
+		AddHeaders: make(map[string]string),
+	}
 	headersMap := headersVal.AsValueMap()
 	for k, v := range headersMap {
 		xfm.AddHeaders[k] = v.AsString()

@@ -4,7 +4,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/norncorp/loki/internal/config"
+	confighttp "github.com/norncorp/loki/internal/config/http"
 	"github.com/stretchr/testify/require"
 )
 
@@ -70,7 +70,7 @@ func TestParseRoute(t *testing.T) {
 func TestRouter_AddHandler(t *testing.T) {
 	router := NewRouter()
 
-	handler := &config.HandlerConfig{
+	handler := &confighttp.Handler{
 		Name:  "test",
 		Route: "GET /test",
 	}
@@ -85,7 +85,7 @@ func TestRouter_AddHandler(t *testing.T) {
 func TestRouter_AddHandler_InvalidRoute(t *testing.T) {
 	router := NewRouter()
 
-	handler := &config.HandlerConfig{
+	handler := &confighttp.Handler{
 		Name:  "test",
 		Route: "invalid",
 	}
@@ -97,7 +97,7 @@ func TestRouter_AddHandler_InvalidRoute(t *testing.T) {
 func TestRouter_Match(t *testing.T) {
 	router := NewRouter()
 
-	handlers := []*config.HandlerConfig{
+	handlers := []*confighttp.Handler{
 		{
 			Name:  "hello",
 			Route: "GET /hello",
@@ -181,7 +181,7 @@ func TestRouter_Match(t *testing.T) {
 func TestRouter_Match_PathParams(t *testing.T) {
 	router := NewRouter()
 
-	handlers := []*config.HandlerConfig{
+	handlers := []*confighttp.Handler{
 		{Name: "kv-get", Route: "GET /v1/secret/data/:path"},
 		{Name: "kv-list", Route: "GET /v1/secret/metadata/:path"},
 		{Name: "health", Route: "GET /v1/sys/health"},

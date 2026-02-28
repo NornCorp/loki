@@ -10,13 +10,14 @@ import (
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/norncorp/loki/internal/config"
+	configtcp "github.com/norncorp/loki/internal/config/tcp"
 	"github.com/norncorp/loki/internal/service"
 )
 
 // TCPService implements a TCP service with pattern matching
 type TCPService struct {
 	name     string
-	config   *config.ServiceConfig
+	config   *configtcp.Service
 	logger   *slog.Logger
 	matcher  *Matcher
 	listener net.Listener
@@ -26,7 +27,7 @@ type TCPService struct {
 }
 
 // NewTCPService creates a new TCP service
-func NewTCPService(cfg *config.ServiceConfig, logger *slog.Logger) (*TCPService, error) {
+func NewTCPService(cfg *configtcp.Service, logger *slog.Logger) (*TCPService, error) {
 	// Create matcher
 	matcher := NewMatcher()
 
@@ -80,7 +81,7 @@ func (s *TCPService) Address() string {
 
 // Upstreams returns the list of upstream service dependencies
 func (s *TCPService) Upstreams() []string {
-	return s.config.InferredUpstreams
+	return s.config.Upstreams
 }
 
 // Start starts the TCP server
@@ -206,7 +207,11 @@ func (s *TCPService) handleConnection(conn net.Conn) {
 
 // init registers the TCP service factory
 func init() {
-	service.RegisterFactory("tcp", func(cfg *config.ServiceConfig, logger *slog.Logger) (service.Service, error) {
-		return NewTCPService(cfg, logger)
+	service.RegisterFactory("tcp", func(cfg config.Service, logger *slog.Logger) (service.Service, error) {
+		c, ok := cfg.(*configtcp.Service)
+		if !ok {
+			return nil, fmt.Errorf("tcp: unexpected config type %T", cfg)
+		}
+		return NewTCPService(c, logger)
 	})
 }

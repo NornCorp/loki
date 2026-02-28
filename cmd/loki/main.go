@@ -3,11 +3,11 @@ package main
 import (
 	"os"
 
-	"github.com/norncorp/loki/internal/cli"
+	"github.com/norncorp/loki/internal/cmd"
 )
 
 func main() {
-	if err := cli.Execute(); err != nil {
+	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
 	}
 }

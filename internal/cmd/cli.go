@@ -1,11 +1,11 @@
-package cli
+package cmd
 
 import (
 	"fmt"
 	"os"
 
 	"github.com/norncorp/loki/internal/cligen"
-	"github.com/norncorp/loki/internal/config"
+	"github.com/norncorp/loki/internal/config/parser"
 	"github.com/spf13/cobra"
 )
 
@@ -28,7 +28,7 @@ Example:
 var cliConfigPath string
 
 func init() {
-	cliCmd.Flags().StringVarP(&cliConfigPath, "config", "c", "", "path to CLI configuration file (required)")
+	cliCmd.Flags().StringVarP(&cliConfigPath, "config", "c", "", "path to CLI configuration file or directory (required)")
 	cliCmd.MarkFlagRequired("config")
 	rootCmd.AddCommand(cliCmd)
 }
@@ -38,12 +38,12 @@ func runCLI(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("configuration file not found: %s", cliConfigPath)
 	}
 
-	cfg, err := config.ParseFile(cliConfigPath)
+	cfg, err := parser.ParseFile(cliConfigPath)
 	if err != nil {
 		return fmt.Errorf("failed to parse config: %w", err)
 	}
 
-	if err := config.ValidateCLI(cfg); err != nil {
+	if err := parser.ValidateCLI(cfg); err != nil {
 		return fmt.Errorf("invalid CLI config: %w", err)
 	}
 

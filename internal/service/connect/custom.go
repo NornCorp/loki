@@ -9,20 +9,21 @@ import (
 	"connectrpc.com/connect"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/norncorp/loki/internal/config"
+	configconnect "github.com/norncorp/loki/internal/config/connect"
 	"github.com/norncorp/loki/internal/step"
 	"github.com/zclconf/go-cty/cty"
 )
 
 // CustomMethodHandler handles custom Connect-RPC methods with steps
 type CustomMethodHandler struct {
-	method      *config.HandlerConfig
+	method      *configconnect.Handler
 	packageName string
 	serviceName string
 	serviceVars map[string]cty.Value
 }
 
 // NewCustomMethodHandler creates a new custom method handler
-func NewCustomMethodHandler(method *config.HandlerConfig, packageName, serviceName string, serviceVars map[string]cty.Value) (*CustomMethodHandler, error) {
+func NewCustomMethodHandler(method *configconnect.Handler, packageName, serviceName string, serviceVars map[string]cty.Value) (*CustomMethodHandler, error) {
 	return &CustomMethodHandler{
 		method:      method,
 		packageName: packageName,

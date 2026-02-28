@@ -5,14 +5,14 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/norncorp/loki/internal/config"
+	confighttp "github.com/norncorp/loki/internal/config/http"
 )
 
 // Route represents a parsed HTTP route
 type Route struct {
 	Method  string
 	Path    string
-	Handler *config.HandlerConfig
+	Handler *confighttp.Handler
 }
 
 // Router matches HTTP requests to handlers
@@ -28,7 +28,7 @@ func NewRouter() *Router {
 }
 
 // AddHandler adds a handler to the router
-func (r *Router) AddHandler(handler *config.HandlerConfig) error {
+func (r *Router) AddHandler(handler *confighttp.Handler) error {
 	route, err := parseRoute(handler.Route)
 	if err != nil {
 		return fmt.Errorf("failed to parse route for handler %q: %w", handler.Name, err)

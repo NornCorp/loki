@@ -11,13 +11,13 @@ import (
 	"time"
 
 	"github.com/norncorp/loki/internal/config"
+	configconnect "github.com/norncorp/loki/internal/config/connect"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNewConnectService(t *testing.T) {
-	cfg := &config.ServiceConfig{
+	cfg := &configconnect.Service{
 		Name:    "test-api",
-		Type:    "connect",
 		Listen:  "0.0.0.0:9090",
 		Package: "api.v1",
 		Resources: []*config.ResourceConfig{
@@ -40,9 +40,8 @@ func TestNewConnectService(t *testing.T) {
 }
 
 func TestNewConnectServiceNoPack(t *testing.T) {
-	cfg := &config.ServiceConfig{
+	cfg := &configconnect.Service{
 		Name:   "test-api",
-		Type:   "connect",
 		Listen: "0.0.0.0:9090",
 	}
 
@@ -52,10 +51,9 @@ func TestNewConnectServiceNoPack(t *testing.T) {
 }
 
 func TestConnectServiceStartStop(t *testing.T) {
-	cfg := &config.ServiceConfig{
+	cfg := &configconnect.Service{
 		Name:    "test-api",
-		Type:    "connect",
-		Listen:  "127.0.0.1:0", // Use port 0 for automatic port assignment
+		Listen:  "127.0.0.1:0",
 		Package: "api.v1",
 		Resources: []*config.ResourceConfig{
 			{
@@ -87,9 +85,8 @@ func TestConnectServiceStartStop(t *testing.T) {
 }
 
 func TestConnectServiceCRUD(t *testing.T) {
-	cfg := &config.ServiceConfig{
+	cfg := &configconnect.Service{
 		Name:    "test-api",
-		Type:    "connect",
 		Listen:  "127.0.0.1:18080",
 		Package: "api.v1",
 		Resources: []*config.ResourceConfig{

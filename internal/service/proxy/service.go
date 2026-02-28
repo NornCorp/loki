@@ -11,6 +11,7 @@ import (
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/norncorp/loki/internal/config"
+	configproxy "github.com/norncorp/loki/internal/config/proxy"
 	"github.com/norncorp/loki/internal/service"
 	"github.com/zclconf/go-cty/cty"
 )
@@ -55,20 +56,20 @@ func (r *proxyRouter) match(method, path string) http.HandlerFunc {
 
 // ProxyService implements a reverse proxy service with transforms
 type ProxyService struct {
-	name         string
-	config       *config.ServiceConfig
-	logger       *slog.Logger
-	server       *http.Server
-	listener     net.Listener
-	proxy        *httputil.ReverseProxy
-	upstreamURL  *url.URL
-	requestXfm   *Transform
-	responseXfm  *Transform
-	router       *proxyRouter
+	name        string
+	config      *configproxy.Service
+	logger      *slog.Logger
+	server      *http.Server
+	listener    net.Listener
+	proxy       *httputil.ReverseProxy
+	upstreamURL *url.URL
+	requestXfm  *Transform
+	responseXfm *Transform
+	router      *proxyRouter
 }
 
 // NewProxyService creates a new proxy service
-func NewProxyService(cfg *config.ServiceConfig, logger *slog.Logger) (*ProxyService, error) {
+func NewProxyService(cfg *configproxy.Service, logger *slog.Logger) (*ProxyService, error) {
 	if cfg.TargetExpr == nil {
 		return nil, fmt.Errorf("target is required for proxy service")
 	}
@@ -78,8 +79,8 @@ func NewProxyService(cfg *config.ServiceConfig, logger *slog.Logger) (*ProxyServ
 		Functions: config.Functions(),
 		Variables: make(map[string]cty.Value),
 	}
-	if len(cfg.ServiceVars) > 0 {
-		evalCtx.Variables["service"] = cty.ObjectVal(cfg.ServiceVars)
+	if len(cfg.Vars) > 0 {
+		evalCtx.Variables["service"] = cty.ObjectVal(cfg.Vars)
 	}
 	targetVal, diags := cfg.TargetExpr.Value(evalCtx)
 	if diags.HasErrors() {
@@ -169,13 +170,13 @@ func NewProxyService(cfg *config.ServiceConfig, logger *slog.Logger) (*ProxyServ
 }
 
 // createHandlerOverride creates a handler function for a handle override
-func (s *ProxyService) createHandlerOverride(handler *config.HandlerConfig) http.HandlerFunc {
+func (s *ProxyService) createHandlerOverride(handler *configproxy.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// For now, just return the configured response
 		// TODO: Add step execution support if needed
 		if handler.Response != nil {
 			// Build evaluation context with functions
-			evalCtx := config.BuildEvalContext(r, nil, s.config.ServiceVars)
+			evalCtx := config.BuildEvalContext(r, nil, s.config.Vars)
 
 			// Set status code
 			status := 200
@@ -228,7 +229,7 @@ func (s *ProxyService) Address() string {
 
 // Upstreams returns the list of upstream service dependencies
 func (s *ProxyService) Upstreams() []string {
-	return s.config.InferredUpstreams
+	return s.config.Upstreams
 }
 
 // Start starts the proxy server
@@ -302,7 +303,11 @@ func parseRoute(route string) (method, path string, ok bool) {
 
 // init registers the proxy service factory
 func init() {
-	service.RegisterFactory("proxy", func(cfg *config.ServiceConfig, logger *slog.Logger) (service.Service, error) {
-		return NewProxyService(cfg, logger)
+	service.RegisterFactory("proxy", func(cfg config.Service, logger *slog.Logger) (service.Service, error) {
+		c, ok := cfg.(*configproxy.Service)
+		if !ok {
+			return nil, fmt.Errorf("proxy: unexpected config type %T", cfg)
+		}
+		return NewProxyService(c, logger)
 	})
 }

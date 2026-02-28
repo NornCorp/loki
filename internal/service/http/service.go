@@ -11,11 +11,12 @@ import (
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/norncorp/loki/internal/config"
+	confighttp "github.com/norncorp/loki/internal/config/http"
 	"github.com/norncorp/loki/internal/meta"
 	"github.com/norncorp/loki/internal/metrics"
 	"github.com/norncorp/loki/internal/resource"
-	"github.com/norncorp/loki/internal/service"
 	"github.com/norncorp/loki/internal/serf"
+	"github.com/norncorp/loki/internal/service"
 	"github.com/norncorp/loki/internal/step"
 	"github.com/norncorp/loki/internal/tracing"
 	"github.com/norncorp/loki/pkg/api/meta/v1/metaapiconnect"
@@ -28,7 +29,7 @@ import (
 // HTTPService implements an HTTP service
 type HTTPService struct {
 	name             string
-	config           *config.ServiceConfig
+	config           *confighttp.Service
 	logger           *slog.Logger
 	router           *Router
 	resourceHandlers []*ResourceHandler
@@ -38,19 +39,20 @@ type HTTPService struct {
 	latencyInjector  *service.LatencyInjector
 	errorInjector    *service.ErrorInjector
 	mux              *http.ServeMux
-	allConfigs       []*config.ServiceConfig // All services for meta API
-	requestLogger    *RequestLogger          // Request log ring buffer
-	staticHandler    http.Handler            // Static file server (optional)
-	staticPrefix     string                  // URL prefix for static files
-	loadGenerator    *service.LoadGenerator  // CPU/memory load generator (optional)
-	rateLimiter      *service.RateLimiter              // Service-level rate limiter (optional)
-	handlerLimiters  map[string]*service.RateLimiter  // Handler-level rate limiters
-	metricsEnabled   bool                             // Whether to serve metrics endpoint
-	metricsPath      string                           // Prometheus scrape path
+	allConfigs       []config.Service                // All services for meta API
+	requestLogger    *RequestLogger                  // Request log ring buffer
+	staticHandler    http.Handler                    // Static file server (optional)
+	staticPrefix     string                          // URL prefix for static files
+	loadGenerator    *service.LoadGenerator          // CPU/memory load generator (optional)
+	rateLimiter      *service.RateLimiter            // Service-level rate limiter (optional)
+	handlerLimiters  map[string]*service.RateLimiter // Handler-level rate limiters
+	metricsEnabled   bool                            // Whether to serve metrics endpoint
+	metricsPath      string                          // Prometheus scrape path
+	specHandler      *SpecHandler                    // OpenAPI spec handler (optional)
 }
 
 // NewHTTPService creates a new HTTP service
-func NewHTTPService(cfg *config.ServiceConfig, logger *slog.Logger) (*HTTPService, error) {
+func NewHTTPService(cfg *confighttp.Service, logger *slog.Logger) (*HTTPService, error) {
 	router := NewRouter()
 
 	// Add all handlers to the router
@@ -185,6 +187,15 @@ func NewHTTPService(cfg *config.ServiceConfig, logger *slog.Logger) (*HTTPServic
 		}
 	}
 
+	// Set up spec handler if configured
+	if cfg.Spec != nil {
+		sh, err := NewSpecHandler(cfg.Spec, logger)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load OpenAPI spec: %w", err)
+		}
+		svc.specHandler = sh
+	}
+
 	// Set up load generator if configured
 	if cfg.Load != nil {
 		var memBytes int64
@@ -295,11 +306,11 @@ func (s *HTTPService) Address() string {
 
 // Upstreams returns the list of upstream service dependencies
 func (s *HTTPService) Upstreams() []string {
-	return s.config.InferredUpstreams
+	return s.config.Upstreams
 }
 
 // ConfigureMetaService sets up the meta service RPC handler
-func (s *HTTPService) ConfigureMetaService(allConfigs []*config.ServiceConfig, serfClient *serf.Client, logProvider meta.RequestLogProvider) {
+func (s *HTTPService) ConfigureMetaService(allConfigs []config.Service, serfClient *serf.Client, logProvider meta.RequestLogProvider) {
 	metaSvc := meta.NewMetaService(allConfigs, serfClient, logProvider)
 	path, handler := metaapiconnect.NewLokiMetaServiceHandler(metaSvc)
 
@@ -460,6 +471,17 @@ func (s *HTTPService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Try to match a regular route
 	route, ok := s.router.Match(r)
 	if !ok {
+		// Try spec handler (OpenAPI-derived routes)
+		if s.specHandler != nil {
+			if specRoute, matched := s.specHandler.Match(r.Method, r.URL.Path); matched {
+				s.handleSpecRoute(wrapped, r, specRoute)
+				duration := time.Since(start)
+				s.requestLogger.Log(r.Method, r.URL.Path, wrapped.status, duration, getLogLevel(r.URL.Path, wrapped.status))
+				metrics.RecordRequest(s.name, "spec", wrapped.status, duration)
+				return
+			}
+		}
+
 		// Try static file server if configured
 		if s.staticHandler != nil && strings.HasPrefix(r.URL.Path, s.staticPrefix) {
 			s.staticHandler.ServeHTTP(wrapped, r)
@@ -487,6 +509,40 @@ func (s *HTTPService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	duration := time.Since(start)
 	s.requestLogger.Log(r.Method, r.URL.Path, wrapped.status, duration, getLogLevel(r.URL.Path, wrapped.status))
 	metrics.RecordRequest(s.name, route.Handler.Name, wrapped.status, duration)
+}
+
+// handleSpecRoute applies service-level injection and writes a spec-derived response.
+func (s *HTTPService) handleSpecRoute(w http.ResponseWriter, r *http.Request, route *specRoute) {
+	// Apply service-level latency injection
+	if s.latencyInjector != nil {
+		s.latencyInjector.Inject(r.Context())
+	}
+
+	// Apply service-level error injection
+	if s.errorInjector != nil {
+		if errCfg := s.errorInjector.ShouldInject(); errCfg != nil {
+			s.errorInjector.WriteError(w, errCfg)
+			return
+		}
+	}
+
+	// Apply service-level rate limiting
+	if s.rateLimiter != nil {
+		if !s.rateLimiter.Allow() {
+			s.rateLimiter.WriteError(w)
+			return
+		}
+	}
+
+	// Apply load generation
+	if s.loadGenerator != nil {
+		loadCtx, loadCancel := context.WithCancel(r.Context())
+		defer loadCancel()
+		go s.loadGenerator.Generate(loadCtx)
+	}
+
+	// Write pre-generated response
+	s.specHandler.Handle(w, r, route)
 }
 
 // convertErrorConfigs converts config.ErrorConfig to service.ErrorConfig
@@ -628,7 +684,7 @@ func (s *HTTPService) handleRequest(w http.ResponseWriter, r *http.Request, rout
 
 	// Build evaluation context from request
 	pathParams := ExtractParams(route, r)
-	evalCtx := config.BuildEvalContext(r, pathParams, s.config.ServiceVars)
+	evalCtx := config.BuildEvalContext(r, pathParams, s.config.Vars)
 
 	// Execute steps if present
 	if len(handler.Steps) > 0 {
@@ -722,7 +778,11 @@ func getLogLevel(path string, status int) string {
 
 // init registers the HTTP service factory
 func init() {
-	service.RegisterFactory("http", func(cfg *config.ServiceConfig, logger *slog.Logger) (service.Service, error) {
-		return NewHTTPService(cfg, logger)
+	service.RegisterFactory("http", func(cfg config.Service, logger *slog.Logger) (service.Service, error) {
+		c, ok := cfg.(*confighttp.Service)
+		if !ok {
+			return nil, fmt.Errorf("http: unexpected config type %T", cfg)
+		}
+		return NewHTTPService(c, logger)
 	})
 }

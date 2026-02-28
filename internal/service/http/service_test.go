@@ -13,15 +13,15 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/norncorp/loki/internal/config"
+	confighttp "github.com/norncorp/loki/internal/config/http"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNewHTTPService(t *testing.T) {
-	cfg := &config.ServiceConfig{
+	cfg := &confighttp.Service{
 		Name:   "test",
-		Type:   "http",
 		Listen: "127.0.0.1:0",
-		Handlers: []*config.HandlerConfig{
+		Handlers: []*confighttp.Handler{
 			{
 				Name:  "hello",
 				Route: "GET /hello",
@@ -37,11 +37,10 @@ func TestNewHTTPService(t *testing.T) {
 }
 
 func TestNewHTTPService_InvalidHandler(t *testing.T) {
-	cfg := &config.ServiceConfig{
+	cfg := &confighttp.Service{
 		Name:   "test",
-		Type:   "http",
 		Listen: "127.0.0.1:0",
-		Handlers: []*config.HandlerConfig{
+		Handlers: []*confighttp.Handler{
 			{
 				Name:  "invalid",
 				Route: "invalid route",
@@ -55,9 +54,8 @@ func TestNewHTTPService_InvalidHandler(t *testing.T) {
 }
 
 func TestHTTPService_StartStop(t *testing.T) {
-	cfg := &config.ServiceConfig{
+	cfg := &confighttp.Service{
 		Name:   "test",
-		Type:   "http",
 		Listen: "127.0.0.1:0",
 	}
 
@@ -89,11 +87,10 @@ func TestHTTPService_ServeHTTP(t *testing.T) {
 	}
 
 	status := http.StatusCreated
-	cfg := &config.ServiceConfig{
+	cfg := &confighttp.Service{
 		Name:   "test",
-		Type:   "http",
 		Listen: "127.0.0.1:0",
-		Handlers: []*config.HandlerConfig{
+		Handlers: []*confighttp.Handler{
 			{
 				Name:  "hello",
 				Route: "GET /hello",
@@ -181,11 +178,10 @@ func TestHTTPService_ServeHTTP(t *testing.T) {
 }
 
 func TestHTTPService_EmptyResponse(t *testing.T) {
-	cfg := &config.ServiceConfig{
+	cfg := &confighttp.Service{
 		Name:   "test",
-		Type:   "http",
 		Listen: "127.0.0.1:0",
-		Handlers: []*config.HandlerConfig{
+		Handlers: []*confighttp.Handler{
 			{
 				Name:     "empty",
 				Route:    "GET /empty",
@@ -223,9 +219,8 @@ func TestHTTPService_StaticFiles(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, "css"), 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "css", "style.css"), []byte("body{}"), 0644))
 
-	cfg := &config.ServiceConfig{
+	cfg := &confighttp.Service{
 		Name:   "static-test",
-		Type:   "http",
 		Listen: "127.0.0.1:0",
 		Static: &config.StaticConfig{
 			Root: dir,
@@ -279,9 +274,8 @@ func TestHTTPService_StaticFilesWithPrefix(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "app.js"), []byte("console.log('hi')"), 0644))
 
-	cfg := &config.ServiceConfig{
+	cfg := &confighttp.Service{
 		Name:   "static-prefix-test",
-		Type:   "http",
 		Listen: "127.0.0.1:0",
 		Static: &config.StaticConfig{
 			Route: "/assets",

@@ -129,7 +129,7 @@ type ServiceInfo struct {
 }
 
 // ConfigureHeimdall configures the registry to join the Heimdall mesh
-func (r *Registry) ConfigureHeimdall(heimdallCfg *config.HeimdallConfig, allConfigs []*config.ServiceConfig) error {
+func (r *Registry) ConfigureHeimdall(heimdallCfg *config.HeimdallConfig, allConfigs []config.Service) error {
 	if heimdallCfg == nil {
 		// No Heimdall configuration, run in standalone mode
 		return nil
@@ -186,7 +186,7 @@ func (r *Registry) ConfigureHeimdall(heimdallCfg *config.HeimdallConfig, allConf
 
 		// Configure meta service (RPC endpoint)
 		if httpSvc, ok := svc.(interface {
-			ConfigureMetaService([]*config.ServiceConfig, *serf.Client, meta.RequestLogProvider)
+			ConfigureMetaService([]config.Service, *serf.Client, meta.RequestLogProvider)
 		}); ok {
 			httpSvc.ConfigureMetaService(allConfigs, client, r.requestLogRegistry)
 		}
@@ -195,8 +195,8 @@ func (r *Registry) ConfigureHeimdall(heimdallCfg *config.HeimdallConfig, allConf
 	return nil
 }
 
-// Factory is a function that creates a service from a config
-type Factory func(*config.ServiceConfig, *slog.Logger) (Service, error)
+// Factory is a function that creates a service from a typed config
+type Factory func(config.Service, *slog.Logger) (Service, error)
 
 // factories maps service types to their factory functions
 var factories = make(map[string]Factory)
@@ -207,10 +207,10 @@ func RegisterFactory(serviceType string, factory Factory) {
 }
 
 // CreateService creates a service from a config using the registered factory
-func CreateService(cfg *config.ServiceConfig, logger *slog.Logger) (Service, error) {
-	factory, ok := factories[cfg.Type]
+func CreateService(cfg config.Service, logger *slog.Logger) (Service, error) {
+	factory, ok := factories[cfg.ServiceType()]
 	if !ok {
-		return nil, fmt.Errorf("unknown service type: %q", cfg.Type)
+		return nil, fmt.Errorf("unknown service type: %q", cfg.ServiceType())
 	}
 
 	return factory(cfg, logger)
@@ -221,19 +221,16 @@ func CreateServices(cfg *config.Config, loggers map[string]*slog.Logger) ([]Serv
 	services := make([]Service, 0, len(cfg.Services))
 
 	for _, svcCfg := range cfg.Services {
-		logger := loggers[svcCfg.Name]
+		logger := loggers[svcCfg.ServiceName()]
 		if logger == nil {
 			logger = slog.Default()
 		}
 		svc, err := CreateService(svcCfg, logger)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create service %q: %w", svcCfg.Name, err)
+			return nil, fmt.Errorf("failed to create service %q: %w", svcCfg.ServiceName(), err)
 		}
 		services = append(services, svc)
 	}
-
-	// Note: Meta service configuration is now done in ConfigureHeimdall
-	// after the Serf client is created, so it can support RPC forwarding
 
 	return services, nil
 }

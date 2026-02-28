@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/norncorp/loki/internal/config"
+	configconnect "github.com/norncorp/loki/internal/config/connect"
 	"github.com/norncorp/loki/internal/resource"
 	"github.com/norncorp/loki/internal/service"
 	"golang.org/x/net/http2"
@@ -18,7 +19,7 @@ import (
 // ConnectService implements a Connect-RPC service
 type ConnectService struct {
 	name             string
-	config           *config.ServiceConfig
+	config           *configconnect.Service
 	logger           *slog.Logger
 	resourceStore    *resource.Store
 	resourceHandlers []*ResourceHandler
@@ -29,7 +30,7 @@ type ConnectService struct {
 }
 
 // NewConnectService creates a new Connect-RPC service
-func NewConnectService(cfg *config.ServiceConfig, logger *slog.Logger) (*ConnectService, error) {
+func NewConnectService(cfg *configconnect.Service, logger *slog.Logger) (*ConnectService, error) {
 	if cfg.Package == "" {
 		return nil, fmt.Errorf("package is required for connect service")
 	}
@@ -73,13 +74,10 @@ func NewConnectService(cfg *config.ServiceConfig, logger *slog.Logger) (*Connect
 		serviceName = capitalizeFirst(cfg.Resources[0].Name) + "Service"
 	}
 
-	// Create custom method handlers from handle blocks without routes
+	// Create custom method handlers from handle blocks
 	var customHandlers []*CustomMethodHandler
 	for _, handler := range cfg.Handlers {
-		if handler.Route != "" {
-			continue // Skip route-based handlers (not Connect-RPC methods)
-		}
-		mh, err := NewCustomMethodHandler(handler, cfg.Package, serviceName, cfg.ServiceVars)
+		mh, err := NewCustomMethodHandler(handler, cfg.Package, serviceName, cfg.Vars)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create custom method handler for %q: %w", handler.Name, err)
 		}
@@ -121,7 +119,7 @@ func (s *ConnectService) Address() string {
 
 // Upstreams returns the list of upstream service dependencies
 func (s *ConnectService) Upstreams() []string {
-	return s.config.InferredUpstreams
+	return s.config.Upstreams
 }
 
 // Start starts the Connect-RPC server
@@ -181,7 +179,11 @@ func (s *ConnectService) Stop(ctx context.Context) error {
 
 // init registers the Connect service factory
 func init() {
-	service.RegisterFactory("connect", func(cfg *config.ServiceConfig, logger *slog.Logger) (service.Service, error) {
-		return NewConnectService(cfg, logger)
+	service.RegisterFactory("connect", func(cfg config.Service, logger *slog.Logger) (service.Service, error) {
+		c, ok := cfg.(*configconnect.Service)
+		if !ok {
+			return nil, fmt.Errorf("connect: unexpected config type %T", cfg)
+		}
+		return NewConnectService(c, logger)
 	})
 }

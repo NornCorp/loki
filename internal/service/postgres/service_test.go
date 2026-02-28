@@ -11,13 +11,13 @@ import (
 	"time"
 
 	"github.com/norncorp/loki/internal/config"
+	configpg "github.com/norncorp/loki/internal/config/postgres"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNewPostgresService_Minimal(t *testing.T) {
-	cfg := &config.ServiceConfig{
+	cfg := &configpg.Service{
 		Name:   "testdb",
-		Type:   "postgres",
 		Listen: "127.0.0.1:0",
 	}
 
@@ -29,9 +29,8 @@ func TestNewPostgresService_Minimal(t *testing.T) {
 
 func TestNewPostgresService_WithTables(t *testing.T) {
 	seed := int64(42)
-	cfg := &config.ServiceConfig{
+	cfg := &configpg.Service{
 		Name:   "testdb",
-		Type:   "postgres",
 		Listen: "127.0.0.1:0",
 		Auth: &config.AuthConfig{
 			Users:    map[string]string{"app": "secret"},
@@ -60,7 +59,7 @@ func TestNewPostgresService_WithTables(t *testing.T) {
 	require.Len(t, items, 10)
 }
 
-func startTestService(t *testing.T, cfg *config.ServiceConfig) (*PostgresService, string) {
+func startTestService(t *testing.T, cfg *configpg.Service) (*PostgresService, string) {
 	t.Helper()
 
 	svc, err := NewPostgresService(cfg, slog.Default())
@@ -191,9 +190,8 @@ func parseErrorMessage(body []byte) string {
 }
 
 func TestPostgresService_Connect_TrustAuth(t *testing.T) {
-	cfg := &config.ServiceConfig{
+	cfg := &configpg.Service{
 		Name:   "testdb",
-		Type:   "postgres",
 		Listen: "127.0.0.1:0",
 	}
 
@@ -203,9 +201,8 @@ func TestPostgresService_Connect_TrustAuth(t *testing.T) {
 }
 
 func TestPostgresService_Connect_MD5Auth(t *testing.T) {
-	cfg := &config.ServiceConfig{
+	cfg := &configpg.Service{
 		Name:   "testdb",
-		Type:   "postgres",
 		Listen: "127.0.0.1:0",
 		Auth: &config.AuthConfig{
 			Users:    map[string]string{"app": "secret"},
@@ -220,9 +217,8 @@ func TestPostgresService_Connect_MD5Auth(t *testing.T) {
 
 func TestPostgresService_Query_Select(t *testing.T) {
 	seed := int64(42)
-	cfg := &config.ServiceConfig{
+	cfg := &configpg.Service{
 		Name:   "testdb",
-		Type:   "postgres",
 		Listen: "127.0.0.1:0",
 		Tables: []*config.TableConfig{
 			{
@@ -247,9 +243,8 @@ func TestPostgresService_Query_Select(t *testing.T) {
 }
 
 func TestPostgresService_Query_InsertAndSelect(t *testing.T) {
-	cfg := &config.ServiceConfig{
+	cfg := &configpg.Service{
 		Name:   "testdb",
-		Type:   "postgres",
 		Listen: "127.0.0.1:0",
 		Tables: []*config.TableConfig{
 			{
@@ -280,9 +275,8 @@ func TestPostgresService_Query_InsertAndSelect(t *testing.T) {
 
 func TestPostgresService_Query_MultipleQueries(t *testing.T) {
 	seed := int64(42)
-	cfg := &config.ServiceConfig{
+	cfg := &configpg.Service{
 		Name:   "testdb",
-		Type:   "postgres",
 		Listen: "127.0.0.1:0",
 		Tables: []*config.TableConfig{
 			{

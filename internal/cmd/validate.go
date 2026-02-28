@@ -1,10 +1,10 @@
-package cli
+package cmd
 
 import (
 	"fmt"
 	"os"
 
-	"github.com/norncorp/loki/internal/config"
+	"github.com/norncorp/loki/internal/config/parser"
 	"github.com/spf13/cobra"
 )
 
@@ -18,7 +18,7 @@ var validateCmd = &cobra.Command{
 var validateConfigPath string
 
 func init() {
-	validateCmd.Flags().StringVarP(&validateConfigPath, "config", "c", "", "path to configuration file (required)")
+	validateCmd.Flags().StringVarP(&validateConfigPath, "config", "c", "", "path to configuration file or directory (required)")
 	validateCmd.MarkFlagRequired("config")
 	rootCmd.AddCommand(validateCmd)
 }
@@ -28,12 +28,12 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("configuration file not found: %s", validateConfigPath)
 	}
 
-	cfg, err := config.ParseFile(validateConfigPath)
+	cfg, err := parser.ParseFile(validateConfigPath)
 	if err != nil {
 		return fmt.Errorf("failed to parse config: %w", err)
 	}
 
-	if err := config.Validate(cfg); err != nil {
+	if err := parser.Validate(cfg); err != nil {
 		return fmt.Errorf("invalid config: %w", err)
 	}
 

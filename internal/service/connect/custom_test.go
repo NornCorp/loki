@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/norncorp/loki/internal/config"
+	configconnect "github.com/norncorp/loki/internal/config/connect"
+	"github.com/norncorp/loki/internal/config/parser"
 	"github.com/stretchr/testify/require"
 )
 
@@ -62,14 +64,14 @@ service "connect" "user-api" {
 }
 `
 
-	cfg, err := config.Parse([]byte(hcl), "test-custom-methods.hcl")
+	cfg, err := parser.Parse([]byte(hcl), "test-custom-methods.hcl")
 	require.NoError(t, err)
 	require.Len(t, cfg.Services, 1)
 
-	svcCfg := cfg.Services[0]
-	require.Len(t, svcCfg.Handlers, 3) // SearchUsers, GetUserStats, Echo
+	connectCfg := cfg.Services[0].(*configconnect.Service)
+	require.Len(t, connectCfg.Handlers, 3) // SearchUsers, GetUserStats, Echo
 
-	svc, err := NewConnectService(svcCfg, slog.Default())
+	svc, err := NewConnectService(connectCfg, slog.Default())
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 	require.Len(t, svc.customHandlers, 3)
@@ -112,14 +114,14 @@ service "connect" "user-api" {
 }
 `
 
-	cfg, err := config.Parse([]byte(hcl), "test-method-overrides.hcl")
+	cfg, err := parser.Parse([]byte(hcl), "test-method-overrides.hcl")
 	require.NoError(t, err)
 	require.Len(t, cfg.Services, 1)
 
-	svcCfg := cfg.Services[0]
-	require.Len(t, svcCfg.Handlers, 2) // GetUser, ListUsers overrides
+	connectCfg := cfg.Services[0].(*configconnect.Service)
+	require.Len(t, connectCfg.Handlers, 2) // GetUser, ListUsers overrides
 
-	svc, err := NewConnectService(svcCfg, slog.Default())
+	svc, err := NewConnectService(connectCfg, slog.Default())
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
@@ -131,7 +133,7 @@ service "connect" "user-api" {
 }
 
 func TestCustomMethodHandler(t *testing.T) {
-	method := &config.HandlerConfig{
+	method := &configconnect.Handler{
 		Name: "TestMethod",
 	}
 
@@ -148,9 +150,8 @@ func TestCustomMethodHandler(t *testing.T) {
 }
 
 func TestConnectServiceWithCustomMethods(t *testing.T) {
-	cfg := &config.ServiceConfig{
+	cfg := &configconnect.Service{
 		Name:    "test-api",
-		Type:    "connect",
 		Listen:  "127.0.0.1:0",
 		Package: "api.v1",
 		Resources: []*config.ResourceConfig{
@@ -162,7 +163,7 @@ func TestConnectServiceWithCustomMethods(t *testing.T) {
 				},
 			},
 		},
-		Handlers: []*config.HandlerConfig{
+		Handlers: []*configconnect.Handler{
 			{
 				Name: "CustomMethod",
 			},
