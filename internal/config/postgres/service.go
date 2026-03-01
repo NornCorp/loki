@@ -5,7 +5,7 @@ import (
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/zclconf/go-cty/cty"
 
-	"github.com/norncorp/loki/internal/config"
+	"github.com/jumppad-labs/polymorph/internal/config"
 )
 
 var _ config.Service = (*Service)(nil)

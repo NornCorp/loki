@@ -12,8 +12,8 @@ import (
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
-	"github.com/norncorp/loki/internal/config"
-	confighttp "github.com/norncorp/loki/internal/config/http"
+	"github.com/jumppad-labs/polymorph/internal/config"
+	confighttp "github.com/jumppad-labs/polymorph/internal/config/http"
 	"github.com/stretchr/testify/require"
 )
 
@@ -96,7 +96,7 @@ func TestHTTPService_ServeHTTP(t *testing.T) {
 				Route: "GET /hello",
 				Response: &config.ResponseConfig{
 					Status:      &status,
-					BodyExpr:    makeExpr(`jsonencode({ message = "Hello from Loki!" })`),
+					BodyExpr:    makeExpr(`jsonencode({ message = "Hello from Polymorph!" })`),
 					HeadersExpr: makeExpr(`{ "X-Custom-Header" = "test-value" }`),
 				},
 			},
@@ -137,7 +137,7 @@ func TestHTTPService_ServeHTTP(t *testing.T) {
 
 		body, err := io.ReadAll(resp.Body)
 		require.NoError(t, err)
-		require.JSONEq(t, `{"message":"Hello from Loki!"}`, string(body))
+		require.JSONEq(t, `{"message":"Hello from Polymorph!"}`, string(body))
 	})
 
 	// Test health endpoint

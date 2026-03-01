@@ -3,7 +3,7 @@
 # with per-service logging overrides.
 #
 # Usage:
-#   loki server -c examples/observability.hcl
+#   polymorph server -c examples/observability.hcl
 #
 # Test:
 #   curl http://localhost:8080/hello

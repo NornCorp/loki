@@ -11,9 +11,9 @@ import (
 	"connectrpc.com/connect"
 	"github.com/gertd/go-pluralize"
 	"github.com/hashicorp/serf/serf"
-	"github.com/norncorp/loki/internal/config"
-	metav1 "github.com/norncorp/loki/pkg/api/meta/v1"
-	"github.com/norncorp/loki/pkg/api/meta/v1/metaapiconnect"
+	"github.com/jumppad-labs/polymorph/internal/config"
+	metav1 "github.com/jumppad-labs/polymorph/pkg/api/meta/v1"
+	"github.com/jumppad-labs/polymorph/pkg/api/meta/v1/metaapiconnect"
 )
 
 // SerfClient is an interface for looking up mesh members
@@ -37,7 +37,7 @@ type RequestLogProvider interface {
 	GetLogs(serviceName string, afterSequence uint64, limit int32) ([]RequestLog, uint64)
 }
 
-// MetaService implements the LokiMetaService RPC
+// MetaService implements the PolymorphMetaService RPC
 type MetaService struct {
 	services           []config.Service
 	nodeName           string
@@ -60,7 +60,7 @@ func (s *MetaService) SetNodeName(nodeName string) {
 }
 
 // Verify interface implementation
-var _ metaapiconnect.LokiMetaServiceHandler = (*MetaService)(nil)
+var _ metaapiconnect.PolymorphMetaServiceHandler = (*MetaService)(nil)
 
 // GetResources returns resource schemas for services on this node
 func (s *MetaService) GetResources(
@@ -181,7 +181,7 @@ func (s *MetaService) forwardRequest(
 	}
 
 	// Build forwarding request
-	forwardURL := fmt.Sprintf("http://%s/meta.v1.LokiMetaService/GetResources", nextServiceAddr)
+	forwardURL := fmt.Sprintf("http://%s/meta.v1.PolymorphMetaService/GetResources", nextServiceAddr)
 	forwardReq := map[string]any{
 		"serviceName": req.Msg.ServiceName,
 		"path":        req.Msg.Path,
@@ -335,7 +335,7 @@ func (s *MetaService) forwardRequestLogs(
 	}
 
 	// Build forwarding request
-	forwardURL := fmt.Sprintf("http://%s/meta.v1.LokiMetaService/GetRequestLogs", nextServiceAddr)
+	forwardURL := fmt.Sprintf("http://%s/meta.v1.PolymorphMetaService/GetRequestLogs", nextServiceAddr)
 	forwardReq := map[string]any{
 		"serviceName":   req.Msg.ServiceName,
 		"afterSequence": req.Msg.AfterSequence,

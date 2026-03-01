@@ -39,13 +39,13 @@ jobs:
           CGO_ENABLED: "0"
         run: |
           go build -trimpath -ldflags="-s -w" \
-            -o loki-${{ matrix.goos }}-${{ matrix.goarch }} \
-            ./cmd/loki
+            -o polymorph-${{ matrix.goos }}-${{ matrix.goarch }} \
+            ./cmd/polymorph
 
       - uses: actions/upload-artifact@v4
         with:
-          name: loki-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: loki-*
+          name: polymorph-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: polymorph-*
 
   release:
     needs: build-binaries
@@ -56,14 +56,14 @@ jobs:
           merge-multiple: true
 
       - name: Create checksums
-        run: sha256sum loki-* > checksums.txt
+        run: sha256sum polymorph-* > checksums.txt
 
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           files: |
-            loki-*
+            polymorph-*
             checksums.txt
 
   docker:
@@ -94,19 +94,19 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: loki-linux-amd64
+          name: polymorph-linux-amd64
           path: build/linux/amd64
 
       - uses: actions/download-artifact@v4
         with:
-          name: loki-linux-arm64
+          name: polymorph-linux-arm64
           path: build/linux/arm64
 
       - name: Prepare binaries
         run: |
-          mv build/linux/amd64/loki-linux-amd64 build/linux/amd64/loki
-          mv build/linux/arm64/loki-linux-arm64 build/linux/arm64/loki
-          chmod +x build/linux/amd64/loki build/linux/arm64/loki
+          mv build/linux/amd64/polymorph-linux-amd64 build/linux/amd64/polymorph
+          mv build/linux/arm64/polymorph-linux-arm64 build/linux/arm64/polymorph
+          chmod +x build/linux/amd64/polymorph build/linux/arm64/polymorph
 
       - name: Build and push
         uses: docker/build-push-action@v6

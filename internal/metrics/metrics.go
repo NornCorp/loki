@@ -12,7 +12,7 @@ import (
 var (
 	RequestsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "loki_requests_total",
+			Name: "polymorph_requests_total",
 			Help: "Total number of requests handled",
 		},
 		[]string{"service", "handler", "status"},
@@ -20,7 +20,7 @@ var (
 
 	RequestDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name:    "loki_request_duration_seconds",
+			Name:    "polymorph_request_duration_seconds",
 			Help:    "Request duration in seconds",
 			Buckets: prometheus.DefBuckets,
 		},
@@ -29,7 +29,7 @@ var (
 
 	StepDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name:    "loki_step_duration_seconds",
+			Name:    "polymorph_step_duration_seconds",
 			Help:    "Step execution duration in seconds",
 			Buckets: prometheus.DefBuckets,
 		},
@@ -38,7 +38,7 @@ var (
 
 	ErrorsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "loki_errors_total",
+			Name: "polymorph_errors_total",
 			Help: "Total number of errors",
 		},
 		[]string{"service", "handler", "type"},

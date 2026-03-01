@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/norncorp/loki/internal/config"
+	"github.com/jumppad-labs/polymorph/internal/config"
 	"github.com/stretchr/testify/require"
 	"github.com/zclconf/go-cty/cty"
 )
@@ -180,7 +180,7 @@ func TestBuildCommand_EnvVarNotSet_UsesDefault(t *testing.T) {
 			{
 				Name:    "server",
 				Default: "http://localhost:8080",
-				Env:     "TEST_UNSET_ENV_VAR_LOKI_12345",
+				Env:     "TEST_UNSET_ENV_VAR_POLYMORPH_12345",
 			},
 		},
 	}

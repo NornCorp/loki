@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	confighttp "github.com/norncorp/loki/internal/config/http"
+	confighttp "github.com/jumppad-labs/polymorph/internal/config/http"
 )
 
 // Route represents a parsed HTTP route

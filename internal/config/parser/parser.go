@@ -13,12 +13,12 @@ import (
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/zclconf/go-cty/cty"
 
-	"github.com/norncorp/loki/internal/config"
-	"github.com/norncorp/loki/internal/config/connect"
-	"github.com/norncorp/loki/internal/config/http"
-	"github.com/norncorp/loki/internal/config/postgres"
-	"github.com/norncorp/loki/internal/config/proxy"
-	"github.com/norncorp/loki/internal/config/tcp"
+	"github.com/jumppad-labs/polymorph/internal/config"
+	"github.com/jumppad-labs/polymorph/internal/config/connect"
+	"github.com/jumppad-labs/polymorph/internal/config/http"
+	"github.com/jumppad-labs/polymorph/internal/config/postgres"
+	"github.com/jumppad-labs/polymorph/internal/config/proxy"
+	"github.com/jumppad-labs/polymorph/internal/config/tcp"
 )
 
 // serviceDecoders maps service type labels to their per-type decoders.

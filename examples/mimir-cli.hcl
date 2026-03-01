@@ -1,7 +1,7 @@
 # Fake Mimir (Vault-like) CLI
 #
-# Start the backend: loki server -c examples/mimir-server.hcl
-# Usage: loki cli -c examples/mimir-cli.hcl -- kv get mysecret
+# Start the backend: polymorph server -c examples/mimir-server.hcl
+# Usage: polymorph cli -c examples/mimir-cli.hcl -- kv get mysecret
 
 cli "mimir" {
   description = "Interact with Mimir secrets engine"

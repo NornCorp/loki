@@ -9,9 +9,9 @@ import (
 	"sync"
 
 	"github.com/hashicorp/hcl/v2"
-	"github.com/norncorp/loki/internal/config"
-	configtcp "github.com/norncorp/loki/internal/config/tcp"
-	"github.com/norncorp/loki/internal/service"
+	"github.com/jumppad-labs/polymorph/internal/config"
+	configtcp "github.com/jumppad-labs/polymorph/internal/config/tcp"
+	"github.com/jumppad-labs/polymorph/internal/service"
 )
 
 // TCPService implements a TCP service with pattern matching

@@ -3,7 +3,7 @@ package postgres
 import (
 	"testing"
 
-	"github.com/norncorp/loki/internal/resource"
+	"github.com/jumppad-labs/polymorph/internal/resource"
 	"github.com/stretchr/testify/require"
 )
 

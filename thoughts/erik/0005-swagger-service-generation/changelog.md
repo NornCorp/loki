@@ -22,7 +22,7 @@ None. Implementation followed the plan exactly.
 ### Verification
 
 - `go test ./internal/config/...` — All tests pass (parser tests: 0.463s)
-- `go build ./cmd/loki` — Build succeeds
+- `go build ./cmd/polymorph` — Build succeeds
 
 ---
 
@@ -54,7 +54,7 @@ None. Implementation followed the plan exactly.
 
 - `go build ./internal/service/http/` — Compiles clean
 - `go test ./...` — All tests pass (http: 0.513s)
-- `go build ./cmd/loki` — Full binary builds
+- `go build ./cmd/polymorph` — Full binary builds
 
 ---
 
@@ -85,7 +85,7 @@ None. The dispatch chain order matches the plan exactly:
 
 ### Verification
 
-- `go build ./cmd/loki` — Build succeeds
+- `go build ./cmd/polymorph` — Build succeeds
 - `go test ./...` — All tests pass (http: 0.663s)
 
 ---

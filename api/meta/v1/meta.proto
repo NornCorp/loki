@@ -2,14 +2,14 @@ syntax = "proto3";
 
 package meta.v1;
 
-option go_package = "github.com/norncorp/loki/pkg/api/meta/v1;metaapi";
+option go_package = "github.com/jumppad-labs/polymorph/pkg/api/meta/v1;metaapi";
 
 // NOTE: Resource and Field definitions must stay in sync with:
 // - heimdall/api/observer/v1/observer.proto
 // TODO: Refactor to use shared proto module
 
-// LokiMetaService provides metadata APIs for Loki services
-service LokiMetaService {
+// PolymorphMetaService provides metadata APIs for Polymorph services
+service PolymorphMetaService {
   // GetResources returns resource schemas for all services on this node
   rpc GetResources(GetResourcesRequest) returns (GetResourcesResponse) {}
 

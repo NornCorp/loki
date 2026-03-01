@@ -13,7 +13,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/norncorp/loki/internal/config"
+	"github.com/jumppad-labs/polymorph/internal/config"
 )
 
 // BuildTLSConfig creates a *tls.Config from a TLSConfig.
@@ -66,7 +66,7 @@ func buildAutoTLSConfig() (*tls.Config, error) {
 
 	template := x509.Certificate{
 		SerialNumber: serialNumber,
-		Subject:      pkix.Name{Organization: []string{"Loki Auto-TLS"}},
+		Subject:      pkix.Name{Organization: []string{"Polymorph Auto-TLS"}},
 		NotBefore:    time.Now(),
 		NotAfter:     time.Now().Add(365 * 24 * time.Hour),
 		KeyUsage:     x509.KeyUsageDigitalSignature,

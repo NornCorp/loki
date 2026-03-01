@@ -1,10 +1,10 @@
 # Fake Mimir (Vault-like) secrets server
 #
 # Provides the backend for mimir-cli.hcl:
-#   loki server -c examples/mimir-server.hcl
-#   loki cli -c examples/mimir-cli.hcl -- kv get mysecret
-#   loki cli -c examples/mimir-cli.hcl -- kv list secrets
-#   loki cli -c examples/mimir-cli.hcl -- status
+#   polymorph server -c examples/mimir-server.hcl
+#   polymorph cli -c examples/mimir-cli.hcl -- kv get mysecret
+#   polymorph cli -c examples/mimir-cli.hcl -- kv list secrets
+#   polymorph cli -c examples/mimir-cli.hcl -- status
 
 service "http" "mimir" {
   listen = "0.0.0.0:8200"

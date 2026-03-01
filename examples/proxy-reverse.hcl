@@ -3,7 +3,7 @@
 # Also demonstrates internal proxying with service.* references.
 #
 # Usage:
-#   loki server -c examples/proxy-reverse.hcl
+#   polymorph server -c examples/proxy-reverse.hcl
 #
 # Test:
 #   curl http://localhost:8080/get        # Proxied to httpbin with custom headers
@@ -18,13 +18,13 @@ service "proxy" "api-proxy" {
 
   # Add headers to all proxied requests
   request_headers = {
-    "X-Proxy"      = "loki"
+    "X-Proxy"      = "polymorph"
     "X-Custom-Tag" = "demo"
   }
 
   # Add headers to all proxied responses
   response_headers = {
-    "X-Served-By" = "loki-proxy"
+    "X-Served-By" = "polymorph-proxy"
   }
 
   # Override specific routes (handled locally, not proxied)

@@ -1,6 +1,8 @@
-# Loki
+# Polymorph
 
-A fake service simulator for building realistic microservice architectures. Define services in HCL, and Loki spins up HTTP servers, TCP listeners, Connect-RPC endpoints, and reverse proxies -- complete with auto-generated CRUD APIs, fake data, latency injection, and error simulation.
+<img src="polymorph.png" alt="Polymorph" width="400">
+
+A fake service simulator for building realistic microservice architectures. Define services in HCL, and Polymorph spins up HTTP servers, TCP listeners, Connect-RPC endpoints, and reverse proxies -- complete with auto-generated CRUD APIs, fake data, latency injection, and error simulation.
 
 Built for Instruqt labs to demonstrate service mesh patterns, observability, and chaos engineering without requiring real backend infrastructure.
 
@@ -8,11 +10,11 @@ Built for Instruqt labs to demonstrate service mesh patterns, observability, and
 
 ```bash
 # Run a simple HTTP service
-loki server -c examples/http-basic.hcl
+polymorph server -c examples/http-basic.hcl
 
 # Test it
 curl http://localhost:8080/hello
-# {"message":"Hello from Loki!"}
+# {"message":"Hello from Polymorph!"}
 ```
 
 ## Service Types
@@ -27,7 +29,7 @@ curl http://localhost:8080/hello
 
 ## Configuration
 
-Loki uses HCL for configuration. A config file defines one or more services that Loki runs concurrently. You can also pass a directory to `-c`, in which case all `*.hcl` files in it are loaded and merged (non-recursive, sorted by filename). This lets you split large configs into separate files (e.g. `01-logging.hcl`, `02-services.hcl`) while cross-file `service.*` references work as expected.
+Polymorph uses HCL for configuration. A config file defines one or more services that Polymorph runs concurrently. You can also pass a directory to `-c`, in which case all `*.hcl` files in it are loaded and merged (non-recursive, sorted by filename). This lets you split large configs into separate files (e.g. `01-logging.hcl`, `02-services.hcl`) while cross-file `service.*` references work as expected.
 
 ### Static Handlers
 
@@ -40,7 +42,7 @@ service "http" "api" {
   handle "hello" {
     route = "GET /hello"
     response {
-      body = jsonencode({ message = "Hello from Loki!" })
+      body = jsonencode({ message = "Hello from Polymorph!" })
     }
   }
 }
@@ -48,7 +50,7 @@ service "http" "api" {
 
 ### Auto-Generated REST APIs
 
-Define a `resource` block and Loki generates full CRUD endpoints with fake data:
+Define a `resource` block and Polymorph generates full CRUD endpoints with fake data:
 
 ```hcl
 service "http" "api" {
@@ -81,7 +83,7 @@ The resource name is automatically pluralized for endpoint paths. See [docs/fake
 
 ### OpenAPI Spec
 
-Serve fake responses from an OpenAPI 3.x spec. Loki parses the spec at startup, generates mock JSON for each operation's response schema, and serves them on the matching routes.
+Serve fake responses from an OpenAPI 3.x spec. Polymorph parses the spec at startup, generates mock JSON for each operation's response schema, and serves them on the matching routes.
 
 ```hcl
 service "http" "pet-store" {
@@ -465,8 +467,8 @@ service "proxy" "api-proxy" {
   listen = "0.0.0.0:8080"
   target = "http://httpbin.org"
 
-  request_headers  = { "X-Proxy" = "loki" }
-  response_headers = { "X-Served-By" = "loki-proxy" }
+  request_headers  = { "X-Proxy" = "polymorph" }
+  response_headers = { "X-Served-By" = "polymorph-proxy" }
 
   # Override specific routes locally
   handle "health" {
@@ -550,10 +552,10 @@ service "http" "noisy-api" {
 Prometheus metrics exposed on HTTP services:
 
 ```
-loki_requests_total{service, handler, status}
-loki_request_duration_seconds{service, handler}
-loki_step_duration_seconds{service, handler, step}
-loki_errors_total{service, handler, type}
+polymorph_requests_total{service, handler, status}
+polymorph_request_duration_seconds{service, handler}
+polymorph_step_duration_seconds{service, handler, step}
+polymorph_errors_total{service, handler, type}
 ```
 
 Traces include spans for request handling and step execution, with context propagated through the step chain. See [examples/observability.hcl](examples/observability.hcl) for a full demo.
@@ -575,7 +577,7 @@ service "http" "user-service" {
 
 ## HCL Expressions
 
-Loki supports HCL expressions throughout the configuration:
+Polymorph supports HCL expressions throughout the configuration:
 
 | Expression | Description |
 |------------|-------------|
@@ -593,15 +595,15 @@ Loki supports HCL expressions throughout the configuration:
 ## CLI
 
 ```bash
-loki server -c config.hcl                          # Start services from a config file
-loki server -c config.d/                           # Load all *.hcl files from a directory
-loki validate -c config.hcl                        # Validate a config file without starting
-loki cli -c cli-config.hcl -- <args>               # Run a CLI defined in an HCL config
+polymorph server -c config.hcl                          # Start services from a config file
+polymorph server -c config.d/                           # Load all *.hcl files from a directory
+polymorph validate -c config.hcl                        # Validate a config file without starting
+polymorph cli -c cli-config.hcl -- <args>               # Run a CLI defined in an HCL config
 ```
 
 ### CLI Runtime
 
-Run CLIs defined in HCL directly -- no code generation or Go toolchain required. Loki builds the command tree at runtime and executes steps using the built-in step executor.
+Run CLIs defined in HCL directly -- no code generation or Go toolchain required. Polymorph builds the command tree at runtime and executes steps using the built-in step executor.
 
 ```hcl
 cli "mimir" {
@@ -655,12 +657,12 @@ cli "mimir" {
 
 ```bash
 # Run directly
-loki cli -c examples/mimir-cli.hcl -- --help
-loki cli -c examples/mimir-cli.hcl -- kv get mysecret
-loki cli -c examples/mimir-cli.hcl -- -a http://vault:8200 status
+polymorph cli -c examples/mimir-cli.hcl -- --help
+polymorph cli -c examples/mimir-cli.hcl -- kv get mysecret
+polymorph cli -c examples/mimir-cli.hcl -- -a http://vault:8200 status
 
 # Or alias for a seamless experience
-alias mimir='loki cli -c /path/to/mimir-cli.hcl --'
+alias mimir='polymorph cli -c /path/to/mimir-cli.hcl --'
 mimir kv get mysecret
 mimir -a http://vault:8200 status
 ```
@@ -688,8 +690,8 @@ Expressions in CLI configs support `flag.*` for flags, `arg.*` for positional ar
 ## Project Structure
 
 ```
-loki/
-├── cmd/loki/           Entry point
+polymorph/
+├── cmd/polymorph/      Entry point
 ├── internal/
 │   ├── cli/            CLI commands (server, validate, cli)
 │   ├── config/         HCL parsing, types, functions, expression context

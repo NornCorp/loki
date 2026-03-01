@@ -4,7 +4,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	confighttp "github.com/norncorp/loki/internal/config/http"
+	confighttp "github.com/jumppad-labs/polymorph/internal/config/http"
 	"github.com/stretchr/testify/require"
 )
 

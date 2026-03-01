@@ -2,7 +2,7 @@
 # Service chaining with steps and Heimdall mesh discovery.
 #
 # Usage:
-#   loki server -c examples/http-gateway.hcl
+#   polymorph server -c examples/http-gateway.hcl
 #
 # Test:
 #   curl http://localhost:8080/dashboard/user-123

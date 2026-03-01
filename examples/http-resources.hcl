@@ -2,7 +2,7 @@
 # Resource CRUD auto-generation with fake data.
 #
 # Usage:
-#   loki server -c examples/http-resources.hcl
+#   polymorph server -c examples/http-resources.hcl
 #
 # Auto-generated endpoints:
 #   GET    /users        - List all users

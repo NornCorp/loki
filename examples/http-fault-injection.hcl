@@ -2,7 +2,7 @@
 # Demonstrates latency and error injection at both service and handler level.
 #
 # Usage:
-#   loki server -c examples/http-fault-injection.hcl
+#   polymorph server -c examples/http-fault-injection.hcl
 #
 # Test endpoints:
 #   curl http://localhost:8080/api/status      # Service-level timing + errors

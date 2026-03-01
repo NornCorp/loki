@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/hcl/v2"
-	"github.com/norncorp/loki/internal/config"
-	"github.com/norncorp/loki/internal/tracing"
+	"github.com/jumppad-labs/polymorph/internal/config"
+	"github.com/jumppad-labs/polymorph/internal/tracing"
 	"github.com/zclconf/go-cty/cty"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -38,7 +38,7 @@ func NewExecutor(steps []*config.StepConfig) *Executor {
 func (e *Executor) Execute(ctx context.Context, evalCtx *hcl.EvalContext) error {
 	for _, step := range e.steps {
 		// Create a tracing span for this step
-		tracer := tracing.Tracer("loki.step")
+		tracer := tracing.Tracer("polymorph.step")
 		stepCtx, span := tracer.Start(ctx, "step."+step.Name,
 			trace.WithAttributes(attribute.String("step.name", step.Name)),
 		)

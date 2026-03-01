@@ -2,7 +2,7 @@
 # Minimal HTTP service with static request handlers.
 #
 # Usage:
-#   loki server -c examples/http-basic.hcl
+#   polymorph server -c examples/http-basic.hcl
 #
 # Test:
 #   curl http://localhost:8080/hello
@@ -14,7 +14,7 @@ service "http" "api" {
   handle "hello" {
     route = "GET /hello"
     response {
-      body = jsonencode({ message = "Hello from Loki!" })
+      body = jsonencode({ message = "Hello from Polymorph!" })
     }
   }
 

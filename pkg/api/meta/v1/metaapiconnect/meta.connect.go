@@ -8,7 +8,7 @@ import (
 	connect "connectrpc.com/connect"
 	context "context"
 	errors "errors"
-	v1 "github.com/norncorp/loki/pkg/api/meta/v1"
+	v1 "github.com/jumppad-labs/polymorph/pkg/api/meta/v1"
 	http "net/http"
 	strings "strings"
 )
@@ -21,8 +21,8 @@ import (
 const _ = connect.IsAtLeastVersion1_13_0
 
 const (
-	// LokiMetaServiceName is the fully-qualified name of the LokiMetaService service.
-	LokiMetaServiceName = "meta.v1.LokiMetaService"
+	// PolymorphMetaServiceName is the fully-qualified name of the PolymorphMetaService service.
+	PolymorphMetaServiceName = "meta.v1.PolymorphMetaService"
 )
 
 // These constants are the fully-qualified names of the RPCs defined in this package. They're
@@ -33,115 +33,115 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// LokiMetaServiceGetResourcesProcedure is the fully-qualified name of the LokiMetaService's
-	// GetResources RPC.
-	LokiMetaServiceGetResourcesProcedure = "/meta.v1.LokiMetaService/GetResources"
-	// LokiMetaServiceGetRequestLogsProcedure is the fully-qualified name of the LokiMetaService's
-	// GetRequestLogs RPC.
-	LokiMetaServiceGetRequestLogsProcedure = "/meta.v1.LokiMetaService/GetRequestLogs"
+	// PolymorphMetaServiceGetResourcesProcedure is the fully-qualified name of the
+	// PolymorphMetaService's GetResources RPC.
+	PolymorphMetaServiceGetResourcesProcedure = "/meta.v1.PolymorphMetaService/GetResources"
+	// PolymorphMetaServiceGetRequestLogsProcedure is the fully-qualified name of the
+	// PolymorphMetaService's GetRequestLogs RPC.
+	PolymorphMetaServiceGetRequestLogsProcedure = "/meta.v1.PolymorphMetaService/GetRequestLogs"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
 var (
-	lokiMetaServiceServiceDescriptor              = v1.File_meta_v1_meta_proto.Services().ByName("LokiMetaService")
-	lokiMetaServiceGetResourcesMethodDescriptor   = lokiMetaServiceServiceDescriptor.Methods().ByName("GetResources")
-	lokiMetaServiceGetRequestLogsMethodDescriptor = lokiMetaServiceServiceDescriptor.Methods().ByName("GetRequestLogs")
+	polymorphMetaServiceServiceDescriptor              = v1.File_meta_v1_meta_proto.Services().ByName("PolymorphMetaService")
+	polymorphMetaServiceGetResourcesMethodDescriptor   = polymorphMetaServiceServiceDescriptor.Methods().ByName("GetResources")
+	polymorphMetaServiceGetRequestLogsMethodDescriptor = polymorphMetaServiceServiceDescriptor.Methods().ByName("GetRequestLogs")
 )
 
-// LokiMetaServiceClient is a client for the meta.v1.LokiMetaService service.
-type LokiMetaServiceClient interface {
+// PolymorphMetaServiceClient is a client for the meta.v1.PolymorphMetaService service.
+type PolymorphMetaServiceClient interface {
 	// GetResources returns resource schemas for all services on this node
 	GetResources(context.Context, *connect.Request[v1.GetResourcesRequest]) (*connect.Response[v1.GetResourcesResponse], error)
 	// GetRequestLogs returns recent HTTP request logs for a service
 	GetRequestLogs(context.Context, *connect.Request[v1.GetRequestLogsRequest]) (*connect.Response[v1.GetRequestLogsResponse], error)
 }
 
-// NewLokiMetaServiceClient constructs a client for the meta.v1.LokiMetaService service. By default,
-// it uses the Connect protocol with the binary Protobuf Codec, asks for gzipped responses, and
-// sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the connect.WithGRPC()
-// or connect.WithGRPCWeb() options.
+// NewPolymorphMetaServiceClient constructs a client for the meta.v1.PolymorphMetaService service.
+// By default, it uses the Connect protocol with the binary Protobuf Codec, asks for gzipped
+// responses, and sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the
+// connect.WithGRPC() or connect.WithGRPCWeb() options.
 //
 // The URL supplied here should be the base URL for the Connect or gRPC server (for example,
 // http://api.acme.com or https://acme.com/grpc).
-func NewLokiMetaServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) LokiMetaServiceClient {
+func NewPolymorphMetaServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) PolymorphMetaServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	return &lokiMetaServiceClient{
+	return &polymorphMetaServiceClient{
 		getResources: connect.NewClient[v1.GetResourcesRequest, v1.GetResourcesResponse](
 			httpClient,
-			baseURL+LokiMetaServiceGetResourcesProcedure,
-			connect.WithSchema(lokiMetaServiceGetResourcesMethodDescriptor),
+			baseURL+PolymorphMetaServiceGetResourcesProcedure,
+			connect.WithSchema(polymorphMetaServiceGetResourcesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getRequestLogs: connect.NewClient[v1.GetRequestLogsRequest, v1.GetRequestLogsResponse](
 			httpClient,
-			baseURL+LokiMetaServiceGetRequestLogsProcedure,
-			connect.WithSchema(lokiMetaServiceGetRequestLogsMethodDescriptor),
+			baseURL+PolymorphMetaServiceGetRequestLogsProcedure,
+			connect.WithSchema(polymorphMetaServiceGetRequestLogsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 	}
 }
 
-// lokiMetaServiceClient implements LokiMetaServiceClient.
-type lokiMetaServiceClient struct {
+// polymorphMetaServiceClient implements PolymorphMetaServiceClient.
+type polymorphMetaServiceClient struct {
 	getResources   *connect.Client[v1.GetResourcesRequest, v1.GetResourcesResponse]
 	getRequestLogs *connect.Client[v1.GetRequestLogsRequest, v1.GetRequestLogsResponse]
 }
 
-// GetResources calls meta.v1.LokiMetaService.GetResources.
-func (c *lokiMetaServiceClient) GetResources(ctx context.Context, req *connect.Request[v1.GetResourcesRequest]) (*connect.Response[v1.GetResourcesResponse], error) {
+// GetResources calls meta.v1.PolymorphMetaService.GetResources.
+func (c *polymorphMetaServiceClient) GetResources(ctx context.Context, req *connect.Request[v1.GetResourcesRequest]) (*connect.Response[v1.GetResourcesResponse], error) {
 	return c.getResources.CallUnary(ctx, req)
 }
 
-// GetRequestLogs calls meta.v1.LokiMetaService.GetRequestLogs.
-func (c *lokiMetaServiceClient) GetRequestLogs(ctx context.Context, req *connect.Request[v1.GetRequestLogsRequest]) (*connect.Response[v1.GetRequestLogsResponse], error) {
+// GetRequestLogs calls meta.v1.PolymorphMetaService.GetRequestLogs.
+func (c *polymorphMetaServiceClient) GetRequestLogs(ctx context.Context, req *connect.Request[v1.GetRequestLogsRequest]) (*connect.Response[v1.GetRequestLogsResponse], error) {
 	return c.getRequestLogs.CallUnary(ctx, req)
 }
 
-// LokiMetaServiceHandler is an implementation of the meta.v1.LokiMetaService service.
-type LokiMetaServiceHandler interface {
+// PolymorphMetaServiceHandler is an implementation of the meta.v1.PolymorphMetaService service.
+type PolymorphMetaServiceHandler interface {
 	// GetResources returns resource schemas for all services on this node
 	GetResources(context.Context, *connect.Request[v1.GetResourcesRequest]) (*connect.Response[v1.GetResourcesResponse], error)
 	// GetRequestLogs returns recent HTTP request logs for a service
 	GetRequestLogs(context.Context, *connect.Request[v1.GetRequestLogsRequest]) (*connect.Response[v1.GetRequestLogsResponse], error)
 }
 
-// NewLokiMetaServiceHandler builds an HTTP handler from the service implementation. It returns the
-// path on which to mount the handler and the handler itself.
+// NewPolymorphMetaServiceHandler builds an HTTP handler from the service implementation. It returns
+// the path on which to mount the handler and the handler itself.
 //
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
-func NewLokiMetaServiceHandler(svc LokiMetaServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	lokiMetaServiceGetResourcesHandler := connect.NewUnaryHandler(
-		LokiMetaServiceGetResourcesProcedure,
+func NewPolymorphMetaServiceHandler(svc PolymorphMetaServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	polymorphMetaServiceGetResourcesHandler := connect.NewUnaryHandler(
+		PolymorphMetaServiceGetResourcesProcedure,
 		svc.GetResources,
-		connect.WithSchema(lokiMetaServiceGetResourcesMethodDescriptor),
+		connect.WithSchema(polymorphMetaServiceGetResourcesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
-	lokiMetaServiceGetRequestLogsHandler := connect.NewUnaryHandler(
-		LokiMetaServiceGetRequestLogsProcedure,
+	polymorphMetaServiceGetRequestLogsHandler := connect.NewUnaryHandler(
+		PolymorphMetaServiceGetRequestLogsProcedure,
 		svc.GetRequestLogs,
-		connect.WithSchema(lokiMetaServiceGetRequestLogsMethodDescriptor),
+		connect.WithSchema(polymorphMetaServiceGetRequestLogsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
-	return "/meta.v1.LokiMetaService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return "/meta.v1.PolymorphMetaService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case LokiMetaServiceGetResourcesProcedure:
-			lokiMetaServiceGetResourcesHandler.ServeHTTP(w, r)
-		case LokiMetaServiceGetRequestLogsProcedure:
-			lokiMetaServiceGetRequestLogsHandler.ServeHTTP(w, r)
+		case PolymorphMetaServiceGetResourcesProcedure:
+			polymorphMetaServiceGetResourcesHandler.ServeHTTP(w, r)
+		case PolymorphMetaServiceGetRequestLogsProcedure:
+			polymorphMetaServiceGetRequestLogsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
 	})
 }
 
-// UnimplementedLokiMetaServiceHandler returns CodeUnimplemented from all methods.
-type UnimplementedLokiMetaServiceHandler struct{}
+// UnimplementedPolymorphMetaServiceHandler returns CodeUnimplemented from all methods.
+type UnimplementedPolymorphMetaServiceHandler struct{}
 
-func (UnimplementedLokiMetaServiceHandler) GetResources(context.Context, *connect.Request[v1.GetResourcesRequest]) (*connect.Response[v1.GetResourcesResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("meta.v1.LokiMetaService.GetResources is not implemented"))
+func (UnimplementedPolymorphMetaServiceHandler) GetResources(context.Context, *connect.Request[v1.GetResourcesRequest]) (*connect.Response[v1.GetResourcesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("meta.v1.PolymorphMetaService.GetResources is not implemented"))
 }
 
-func (UnimplementedLokiMetaServiceHandler) GetRequestLogs(context.Context, *connect.Request[v1.GetRequestLogsRequest]) (*connect.Response[v1.GetRequestLogsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("meta.v1.LokiMetaService.GetRequestLogs is not implemented"))
+func (UnimplementedPolymorphMetaServiceHandler) GetRequestLogs(context.Context, *connect.Request[v1.GetRequestLogsRequest]) (*connect.Response[v1.GetRequestLogsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("meta.v1.PolymorphMetaService.GetRequestLogs is not implemented"))
 }

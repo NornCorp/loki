@@ -12,11 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zclconf/go-cty/cty"
 
-	"github.com/norncorp/loki/internal/config"
-	"github.com/norncorp/loki/internal/config/connect"
-	"github.com/norncorp/loki/internal/config/http"
-	"github.com/norncorp/loki/internal/config/proxy"
-	"github.com/norncorp/loki/internal/config/tcp"
+	"github.com/jumppad-labs/polymorph/internal/config"
+	"github.com/jumppad-labs/polymorph/internal/config/connect"
+	"github.com/jumppad-labs/polymorph/internal/config/http"
+	"github.com/jumppad-labs/polymorph/internal/config/proxy"
+	"github.com/jumppad-labs/polymorph/internal/config/tcp"
 )
 
 func TestParseFile_MinimalHTTPService(t *testing.T) {
@@ -58,13 +58,13 @@ func TestParseFile_WithHandlers(t *testing.T) {
 	value, diags := hello.Response.BodyExpr.Value(evalCtx)
 	require.False(t, diags.HasErrors())
 	bodyStr := value.AsString()
-	require.Contains(t, bodyStr, "Hello from Loki!")
+	require.Contains(t, bodyStr, "Hello from Polymorph!")
 
 	// Verify JSON is valid
 	var parsed map[string]interface{}
 	err = json.Unmarshal([]byte(bodyStr), &parsed)
 	require.NoError(t, err)
-	require.Equal(t, "Hello from Loki!", parsed["message"])
+	require.Equal(t, "Hello from Polymorph!", parsed["message"])
 
 	// Check health handler
 	health := httpCfg.Handlers[1]
@@ -531,8 +531,8 @@ service "http" "backend" {
 service "proxy" "proxy" {
   listen           = "0.0.0.0:8080"
   target           = service.backend.url
-  request_headers  = { "X-Proxy" = "loki" }
-  response_headers = { "X-Served-By" = "loki-proxy" }
+  request_headers  = { "X-Proxy" = "polymorph" }
+  response_headers = { "X-Served-By" = "polymorph-proxy" }
 
   handle "health" {
     route = "GET /health"

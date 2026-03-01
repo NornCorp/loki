@@ -5,5 +5,5 @@ FROM scratch
 ARG TARGETOS
 ARG TARGETARCH
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY build/${TARGETOS}/${TARGETARCH}/loki /usr/local/bin/loki
-ENTRYPOINT ["loki"]
+COPY build/${TARGETOS}/${TARGETARCH}/polymorph /usr/local/bin/polymorph
+ENTRYPOINT ["polymorph"]

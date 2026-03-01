@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/norncorp/loki/internal/config/parser"
+	"github.com/jumppad-labs/polymorph/internal/config/parser"
 	"github.com/spf13/cobra"
 )
 
 var validateCmd = &cobra.Command{
 	Use:   "validate",
-	Short: "Validate a Loki configuration file",
-	Long:  `Validate a Loki configuration file for syntax and semantic errors.`,
+	Short: "Validate a Polymorph configuration file",
+	Long:  `Validate a Polymorph configuration file for syntax and semantic errors.`,
 	RunE:  runValidate,
 }
 

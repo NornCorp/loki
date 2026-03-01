@@ -3,7 +3,7 @@ package http
 import (
 	"sync"
 
-	"github.com/norncorp/loki/internal/meta"
+	"github.com/jumppad-labs/polymorph/internal/meta"
 )
 
 // ServiceLogRegistry manages request loggers for all services

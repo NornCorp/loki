@@ -8,7 +8,7 @@ import (
 
 	"github.com/hashicorp/memberlist"
 	"github.com/hashicorp/serf/serf"
-	"github.com/norncorp/loki/internal/topology"
+	"github.com/jumppad-labs/polymorph/internal/topology"
 )
 
 // ClientConfig contains configuration for creating a Serf client

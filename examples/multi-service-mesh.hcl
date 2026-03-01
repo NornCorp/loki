@@ -2,7 +2,7 @@
 # Full multi-service topology with Heimdall discovery, latency injection, and error injection.
 #
 # Usage:
-#   loki server -c examples/multi-service-mesh.hcl
+#   polymorph server -c examples/multi-service-mesh.hcl
 #
 # Services:
 #   product-service    127.0.0.1:8083  - Product catalog with fake data

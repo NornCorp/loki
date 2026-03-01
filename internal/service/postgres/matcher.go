@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/gertd/go-pluralize"
-	"github.com/norncorp/loki/internal/resource"
+	"github.com/jumppad-labs/polymorph/internal/resource"
 )
 
 // TableColumn describes a column registered with the query matcher.
@@ -140,7 +140,7 @@ func (m *QueryMatcher) handleSelectExpr(normalized string) (*QueryResult, error)
 	if strings.Contains(normalized, "version()") {
 		return &QueryResult{
 			Columns: []ColumnDef{{Name: "version", TypeOID: oidText}},
-			Rows:    [][]string{{"PostgreSQL 16.0 (Loki fake database)"}},
+			Rows:    [][]string{{"PostgreSQL 16.0 (Polymorph fake database)"}},
 			Tag:     "SELECT 1",
 		}, nil
 	}
@@ -178,7 +178,7 @@ func (m *QueryMatcher) handleShow(normalized string) (*QueryResult, error) {
 	case "transaction_isolation", "default_transaction_isolation":
 		value = "read committed"
 	case "server_version":
-		value = "16.0 (Loki)"
+		value = "16.0 (Polymorph)"
 	case "server_encoding":
 		value = "UTF8"
 	case "client_encoding":

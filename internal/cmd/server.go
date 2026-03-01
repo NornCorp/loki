@@ -8,23 +8,23 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/norncorp/loki/internal/config/parser"
-	"github.com/norncorp/loki/internal/logging"
-	"github.com/norncorp/loki/internal/metrics"
-	"github.com/norncorp/loki/internal/service"
-	_ "github.com/norncorp/loki/internal/service/connect"  // Register Connect-RPC service
-	"github.com/norncorp/loki/internal/service/http"       // Need for log registry
-	_ "github.com/norncorp/loki/internal/service/postgres" // Register PostgreSQL service
-	_ "github.com/norncorp/loki/internal/service/proxy"    // Register Proxy service
-	_ "github.com/norncorp/loki/internal/service/tcp"      // Register TCP service
-	"github.com/norncorp/loki/internal/tracing"
+	"github.com/jumppad-labs/polymorph/internal/config/parser"
+	"github.com/jumppad-labs/polymorph/internal/logging"
+	"github.com/jumppad-labs/polymorph/internal/metrics"
+	"github.com/jumppad-labs/polymorph/internal/service"
+	_ "github.com/jumppad-labs/polymorph/internal/service/connect"  // Register Connect-RPC service
+	"github.com/jumppad-labs/polymorph/internal/service/http"       // Need for log registry
+	_ "github.com/jumppad-labs/polymorph/internal/service/postgres" // Register PostgreSQL service
+	_ "github.com/jumppad-labs/polymorph/internal/service/proxy"    // Register Proxy service
+	_ "github.com/jumppad-labs/polymorph/internal/service/tcp"      // Register TCP service
+	"github.com/jumppad-labs/polymorph/internal/tracing"
 	"github.com/spf13/cobra"
 )
 
 var serverCmd = &cobra.Command{
 	Use:   "server",
-	Short: "Start the Loki server",
-	Long:  `Start the Loki server with the specified configuration file.`,
+	Short: "Start the Polymorph server",
+	Long:  `Start the Polymorph server with the specified configuration file.`,
 	RunE:  runServer,
 }
 
@@ -105,7 +105,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 	// Initialize tracing
 	tracingCfg := tracing.Config{
 		Enabled:     true,
-		ServiceName: "loki",
+		ServiceName: "polymorph",
 		Sampler:     "always_on",
 	}
 	if cfg.Tracing != nil {

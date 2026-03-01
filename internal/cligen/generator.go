@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/norncorp/loki/internal/config"
+	"github.com/jumppad-labs/polymorph/internal/config"
 )
 
 // Generate creates a standalone Go binary from a CLIConfig.
@@ -22,7 +22,7 @@ func Generate(cfg *config.CLIConfig, outputPath string) error {
 	}
 
 	// Create temp directory
-	tmpDir, err := os.MkdirTemp("", "loki-cligen-*")
+	tmpDir, err := os.MkdirTemp("", "polymorph-cligen-*")
 	if err != nil {
 		return fmt.Errorf("failed to create temp dir: %w", err)
 	}

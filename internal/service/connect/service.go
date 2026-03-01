@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/norncorp/loki/internal/config"
-	configconnect "github.com/norncorp/loki/internal/config/connect"
-	"github.com/norncorp/loki/internal/resource"
-	"github.com/norncorp/loki/internal/service"
+	"github.com/jumppad-labs/polymorph/internal/config"
+	configconnect "github.com/jumppad-labs/polymorph/internal/config/connect"
+	"github.com/jumppad-labs/polymorph/internal/resource"
+	"github.com/jumppad-labs/polymorph/internal/service"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )

@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/gertd/go-pluralize"
-	"github.com/norncorp/loki/internal/config"
-	"github.com/norncorp/loki/internal/fake"
-	"github.com/norncorp/loki/internal/resource"
+	"github.com/jumppad-labs/polymorph/internal/config"
+	"github.com/jumppad-labs/polymorph/internal/fake"
+	"github.com/jumppad-labs/polymorph/internal/resource"
 )
 
 // ResourceHandler handles auto-generated REST endpoints for a resource

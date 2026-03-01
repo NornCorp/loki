@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/norncorp/loki/internal/config"
-	confighttp "github.com/norncorp/loki/internal/config/http"
+	"github.com/jumppad-labs/polymorph/internal/config"
+	confighttp "github.com/jumppad-labs/polymorph/internal/config/http"
 	"github.com/stretchr/testify/require"
 )
 

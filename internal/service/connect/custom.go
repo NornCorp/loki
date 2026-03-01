@@ -8,9 +8,9 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/hashicorp/hcl/v2"
-	"github.com/norncorp/loki/internal/config"
-	configconnect "github.com/norncorp/loki/internal/config/connect"
-	"github.com/norncorp/loki/internal/step"
+	"github.com/jumppad-labs/polymorph/internal/config"
+	configconnect "github.com/jumppad-labs/polymorph/internal/config/connect"
+	"github.com/jumppad-labs/polymorph/internal/step"
 	"github.com/zclconf/go-cty/cty"
 )
 

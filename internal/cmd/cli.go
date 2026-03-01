@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/norncorp/loki/internal/cligen"
-	"github.com/norncorp/loki/internal/config/parser"
+	"github.com/jumppad-labs/polymorph/internal/cligen"
+	"github.com/jumppad-labs/polymorph/internal/config/parser"
 	"github.com/spf13/cobra"
 )
 
@@ -14,12 +14,12 @@ var cliCmd = &cobra.Command{
 	Short: "Run a CLI defined in an HCL config file",
 	Long: `Run a CLI defined in an HCL configuration file.
 
-Use -- to separate loki flags from CLI arguments:
-  loki cli -c config.hcl -- <args>
+Use -- to separate polymorph flags from CLI arguments:
+  polymorph cli -c config.hcl -- <args>
 
 Example:
-  loki cli -c examples/mimir-cli.hcl -- kv get mysecret
-  loki cli -c examples/mimir-cli.hcl -- --help`,
+  polymorph cli -c examples/mimir-cli.hcl -- kv get mysecret
+  polymorph cli -c examples/mimir-cli.hcl -- --help`,
 	RunE:         runCLI,
 	Args:         cobra.ArbitraryArgs,
 	SilenceUsage: true,

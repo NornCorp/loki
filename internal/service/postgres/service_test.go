@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/norncorp/loki/internal/config"
-	configpg "github.com/norncorp/loki/internal/config/postgres"
+	"github.com/jumppad-labs/polymorph/internal/config"
+	configpg "github.com/jumppad-labs/polymorph/internal/config/postgres"
 	"github.com/stretchr/testify/require"
 )
 

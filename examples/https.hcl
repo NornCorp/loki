@@ -7,7 +7,7 @@ service "http" "secure-api" {
   handle "hello" {
     route = "GET /hello"
     response {
-      body = jsonencode({ message = "Hello from Loki over TLS!" })
+      body = jsonencode({ message = "Hello from Polymorph over TLS!" })
     }
   }
 

@@ -8,9 +8,9 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "loki",
-	Short: "Loki - Fake service simulator",
-	Long: `Loki is a fake service simulator for creating realistic microservice architectures.
+	Use:   "polymorph",
+	Short: "Polymorph - Fake service simulator",
+	Long: `Polymorph is a fake service simulator for creating realistic microservice architectures.
 It supports HTTP, PostgreSQL, TCP, and other protocols with configurable behaviors.`,
 }
 

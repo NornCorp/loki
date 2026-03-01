@@ -1,4 +1,4 @@
-module github.com/norncorp/loki
+module github.com/jumppad-labs/polymorph
 
 go 1.25.5
 

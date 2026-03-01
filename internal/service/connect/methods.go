@@ -9,9 +9,9 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/gertd/go-pluralize"
-	"github.com/norncorp/loki/internal/config"
-	"github.com/norncorp/loki/internal/fake"
-	"github.com/norncorp/loki/internal/resource"
+	"github.com/jumppad-labs/polymorph/internal/config"
+	"github.com/jumppad-labs/polymorph/internal/fake"
+	"github.com/jumppad-labs/polymorph/internal/resource"
 )
 
 // ResourceHandler handles Connect-RPC CRUD operations for a resource

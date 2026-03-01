@@ -1,6 +1,6 @@
 # Fake Data Types
 
-Loki supports generating fake data using [gofakeit](https://github.com/brianvoe/gofakeit). Below are all available types you can use in resource field definitions.
+Polymorph supports generating fake data using [gofakeit](https://github.com/brianvoe/gofakeit). Below are all available types you can use in resource field definitions.
 
 ## Basic Types
 

@@ -10,16 +10,16 @@ import (
 	"time"
 
 	"github.com/hashicorp/hcl/v2"
-	"github.com/norncorp/loki/internal/config"
-	confighttp "github.com/norncorp/loki/internal/config/http"
-	"github.com/norncorp/loki/internal/meta"
-	"github.com/norncorp/loki/internal/metrics"
-	"github.com/norncorp/loki/internal/resource"
-	"github.com/norncorp/loki/internal/serf"
-	"github.com/norncorp/loki/internal/service"
-	"github.com/norncorp/loki/internal/step"
-	"github.com/norncorp/loki/internal/tracing"
-	"github.com/norncorp/loki/pkg/api/meta/v1/metaapiconnect"
+	"github.com/jumppad-labs/polymorph/internal/config"
+	confighttp "github.com/jumppad-labs/polymorph/internal/config/http"
+	"github.com/jumppad-labs/polymorph/internal/meta"
+	"github.com/jumppad-labs/polymorph/internal/metrics"
+	"github.com/jumppad-labs/polymorph/internal/resource"
+	"github.com/jumppad-labs/polymorph/internal/serf"
+	"github.com/jumppad-labs/polymorph/internal/service"
+	"github.com/jumppad-labs/polymorph/internal/step"
+	"github.com/jumppad-labs/polymorph/internal/tracing"
+	"github.com/jumppad-labs/polymorph/pkg/api/meta/v1/metaapiconnect"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/net/http2"
@@ -312,7 +312,7 @@ func (s *HTTPService) Upstreams() []string {
 // ConfigureMetaService sets up the meta service RPC handler
 func (s *HTTPService) ConfigureMetaService(allConfigs []config.Service, serfClient *serf.Client, logProvider meta.RequestLogProvider) {
 	metaSvc := meta.NewMetaService(allConfigs, serfClient, logProvider)
-	path, handler := metaapiconnect.NewLokiMetaServiceHandler(metaSvc)
+	path, handler := metaapiconnect.NewPolymorphMetaServiceHandler(metaSvc)
 
 	// Create mux if not exists
 	if s.mux == nil {
@@ -594,7 +594,7 @@ func (s *HTTPService) handleRequest(w http.ResponseWriter, r *http.Request, rout
 	handler := route.Handler
 
 	// Start tracing span
-	tracer := tracing.Tracer("loki.http")
+	tracer := tracing.Tracer("polymorph.http")
 	ctx, span := tracer.Start(r.Context(), fmt.Sprintf("%s %s", r.Method, r.URL.Path),
 		trace.WithAttributes(
 			attribute.String("service", s.name),

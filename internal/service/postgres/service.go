@@ -11,11 +11,11 @@ import (
 	"net"
 	"sync"
 
-	"github.com/norncorp/loki/internal/config"
-	configpg "github.com/norncorp/loki/internal/config/postgres"
-	"github.com/norncorp/loki/internal/fake"
-	"github.com/norncorp/loki/internal/resource"
-	"github.com/norncorp/loki/internal/service"
+	"github.com/jumppad-labs/polymorph/internal/config"
+	configpg "github.com/jumppad-labs/polymorph/internal/config/postgres"
+	"github.com/jumppad-labs/polymorph/internal/fake"
+	"github.com/jumppad-labs/polymorph/internal/resource"
+	"github.com/jumppad-labs/polymorph/internal/service"
 )
 
 // PostgresService implements a fake PostgreSQL database service.
@@ -266,7 +266,7 @@ func (s *PostgresService) handleConnection(conn net.Conn) {
 	}
 
 	// Send server parameters
-	writeParameterStatus(rw, "server_version", "16.0 (Loki)")
+	writeParameterStatus(rw, "server_version", "16.0 (Polymorph)")
 	writeParameterStatus(rw, "server_encoding", "UTF8")
 	writeParameterStatus(rw, "client_encoding", "UTF8")
 	writeParameterStatus(rw, "DateStyle", "ISO, MDY")

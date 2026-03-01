@@ -12,8 +12,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zclconf/go-cty/cty"
 
-	"github.com/norncorp/loki/internal/config"
-	"github.com/norncorp/loki/internal/step"
+	"github.com/jumppad-labs/polymorph/internal/config"
+	"github.com/jumppad-labs/polymorph/internal/step"
 )
 
 // BuildCommand creates a cobra command tree from a CLIConfig for runtime execution.

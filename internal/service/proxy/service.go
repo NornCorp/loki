@@ -10,9 +10,9 @@ import (
 	"net/url"
 
 	"github.com/hashicorp/hcl/v2"
-	"github.com/norncorp/loki/internal/config"
-	configproxy "github.com/norncorp/loki/internal/config/proxy"
-	"github.com/norncorp/loki/internal/service"
+	"github.com/jumppad-labs/polymorph/internal/config"
+	configproxy "github.com/jumppad-labs/polymorph/internal/config/proxy"
+	"github.com/jumppad-labs/polymorph/internal/service"
 	"github.com/zclconf/go-cty/cty"
 )
 

@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/norncorp/loki/internal/config"
+	"github.com/jumppad-labs/polymorph/internal/config"
 )
 
 // Config holds resolved logging configuration (not HCL-tagged).

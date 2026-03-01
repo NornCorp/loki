@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/norncorp/loki/internal/config"
+	"github.com/jumppad-labs/polymorph/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,7 +38,7 @@ func TestBuildTLSConfig_Auto(t *testing.T) {
 	// Verify the generated certificate is valid and has expected properties
 	leaf, err := x509.ParseCertificate(tlsCfg.Certificates[0].Certificate[0])
 	require.NoError(t, err)
-	require.Equal(t, "Loki Auto-TLS", leaf.Subject.Organization[0])
+	require.Equal(t, "Polymorph Auto-TLS", leaf.Subject.Organization[0])
 	require.Contains(t, leaf.DNSNames, "localhost")
 	require.Contains(t, leaf.IPAddresses, net.IPv4(127, 0, 0, 1).To4())
 	require.True(t, leaf.NotAfter.After(time.Now()))

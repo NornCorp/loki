@@ -7,9 +7,9 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/norncorp/loki/internal/config"
-	"github.com/norncorp/loki/internal/meta"
-	"github.com/norncorp/loki/internal/serf"
+	"github.com/jumppad-labs/polymorph/internal/config"
+	"github.com/jumppad-labs/polymorph/internal/meta"
+	"github.com/jumppad-labs/polymorph/internal/serf"
 )
 
 // Service represents a service that can be started and stopped

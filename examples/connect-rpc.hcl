@@ -2,7 +2,7 @@
 # Demonstrates resources, custom methods, method overrides, and steps.
 #
 # Usage:
-#   loki server -c examples/connect-rpc.hcl
+#   polymorph server -c examples/connect-rpc.hcl
 #
 # Test with grpcurl or curl:
 #   grpcurl -plaintext localhost:8080 api.v1.UserService/ListUsers

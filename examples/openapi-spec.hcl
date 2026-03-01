@@ -2,7 +2,7 @@
 # Serves fake responses matching an OpenAPI 3.x spec.
 #
 # Usage:
-#   loki server -c examples/openapi-spec.hcl
+#   polymorph server -c examples/openapi-spec.hcl
 #
 # All paths from the spec are served automatically.
 # Override specific endpoints with handle blocks.

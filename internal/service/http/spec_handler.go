@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/norncorp/loki/internal/config"
+	"github.com/jumppad-labs/polymorph/internal/config"
 	"github.com/pb33f/libopenapi"
 	"github.com/pb33f/libopenapi/renderer"
 )

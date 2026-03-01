@@ -4,7 +4,7 @@ service "http" "api" {
   handle "hello" {
     route = "GET /hello"
     response {
-      body = jsonencode({ message = "Hello from Loki!" })
+      body = jsonencode({ message = "Hello from Polymorph!" })
     }
   }
 

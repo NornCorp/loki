@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/norncorp/loki/internal/cmd"
+	"github.com/jumppad-labs/polymorph/internal/cmd"
 )
 
 func main() {

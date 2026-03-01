@@ -2,7 +2,7 @@
 # TCP service with pattern matching, simulating a Redis-like protocol.
 #
 # Usage:
-#   loki server -c examples/tcp-patterns.hcl
+#   polymorph server -c examples/tcp-patterns.hcl
 #
 # Test with netcat:
 #   nc localhost 6379
