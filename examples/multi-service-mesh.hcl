@@ -1,5 +1,5 @@
 # Multi-Service Mesh Example
-# Full multi-service topology with Heimdall discovery, latency injection, and error injection.
+# Full multi-service topology with Lattice discovery, latency injection, and error injection.
 #
 # Usage:
 #   polymorph server -c examples/multi-service-mesh.hcl
@@ -11,8 +11,8 @@
 #   analytics-service  127.0.0.1:8084  - Analytics with high latency
 #   api-gateway        0.0.0.0:8080    - Frontend gateway with rate limiting
 
-# Register all services with Heimdall
-heimdall {
+# Register all services with Lattice
+lattice {
   address = "localhost:7946"
 }
 

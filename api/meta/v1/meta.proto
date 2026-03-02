@@ -5,7 +5,7 @@ package meta.v1;
 option go_package = "github.com/jumppad-labs/polymorph/pkg/api/meta/v1;metaapi";
 
 // NOTE: Resource and Field definitions must stay in sync with:
-// - heimdall/api/observer/v1/observer.proto
+// - lattice/api/observer/v1/observer.proto
 // TODO: Refactor to use shared proto module
 
 // PolymorphMetaService provides metadata APIs for Polymorph services

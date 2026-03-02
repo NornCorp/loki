@@ -134,13 +134,13 @@ func TestParseFile_FileNotFound(t *testing.T) {
 	require.Contains(t, err.Error(), "failed to read config file")
 }
 
-func TestParseFile_WithHeimdall(t *testing.T) {
-	cfg, err := ParseFile("../testdata/with_heimdall.hcl")
+func TestParseFile_WithLattice(t *testing.T) {
+	cfg, err := ParseFile("../testdata/with_lattice.hcl")
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
-	require.NotNil(t, cfg.Heimdall)
-	require.Equal(t, "heimdall:7946", cfg.Heimdall.Address)
+	require.NotNil(t, cfg.Lattice)
+	require.Equal(t, "lattice:7946", cfg.Lattice.Address)
 
 	require.Len(t, cfg.Services, 1)
 	require.Equal(t, "api", cfg.Services[0].ServiceName())

@@ -1,5 +1,5 @@
-heimdall {
-  address = "heimdall:7946"
+lattice {
+  address = "lattice:7946"
 }
 
 service "http" "api" {

@@ -19,11 +19,11 @@ type ClientConfig struct {
 	// Tags are metadata tags for this node
 	Tags map[string]string
 
-	// JoinAddr is the address of the Heimdall mesh to join
+	// JoinAddr is the address of the Lattice mesh to join
 	JoinAddr string
 }
 
-// Client manages a Serf client connection to Heimdall mesh
+// Client manages a Serf client connection to Lattice mesh
 type Client struct {
 	serf        *serf.Serf
 	config      ClientConfig
@@ -82,12 +82,12 @@ func (c *Client) Start(ctx context.Context) error {
 
 	c.serf = s
 
-	// Join the Heimdall mesh
+	// Join the Lattice mesh
 	_, err = c.serf.Join([]string{c.config.JoinAddr}, false)
 	if err != nil {
 		// Clean up on failure
 		c.serf.Shutdown()
-		return fmt.Errorf("failed to join heimdall mesh at %s: %w", c.config.JoinAddr, err)
+		return fmt.Errorf("failed to join lattice mesh at %s: %w", c.config.JoinAddr, err)
 	}
 
 	// Start broadcasting topology

@@ -560,18 +560,18 @@ polymorph_errors_total{service, handler, type}
 
 Traces include spans for request handling and step execution, with context propagated through the step chain. See [examples/observability.hcl](examples/observability.hcl) for a full demo.
 
-### Heimdall Integration
+### Lattice Integration
 
-Register services with [Heimdall](../heimdall/) for mesh-based service discovery and topology visualization:
+Register services with [Lattice](../lattice/) for mesh-based service discovery and topology visualization:
 
 ```hcl
-heimdall {
+lattice {
   address = "localhost:7946"
 }
 
 service "http" "user-service" {
   listen = "127.0.0.1:8081"
-  # Automatically registered with Heimdall on startup
+  # Automatically registered with Lattice on startup
 }
 ```
 
@@ -677,7 +677,7 @@ Expressions in CLI configs support `flag.*` for flags, `arg.*` for positional ar
 | [http-resources.hcl](examples/http-resources.hcl) | Auto-generated CRUD with fake data |
 | [openapi-spec.hcl](examples/openapi-spec.hcl) | Serve fake responses from an OpenAPI spec |
 | [http-fault-injection.hcl](examples/http-fault-injection.hcl) | Latency and error injection at service and handler level |
-| [http-gateway.hcl](examples/http-gateway.hcl) | Service chaining with steps and Heimdall |
+| [http-gateway.hcl](examples/http-gateway.hcl) | Service chaining with steps and Lattice |
 | [multi-service-mesh.hcl](examples/multi-service-mesh.hcl) | Full multi-service topology |
 | [tcp-patterns.hcl](examples/tcp-patterns.hcl) | TCP pattern matching (Redis-like) |
 | [postgres.hcl](examples/postgres.hcl) | PostgreSQL with tables, auth, and custom queries |
@@ -712,7 +712,7 @@ polymorph/
 │   ├── logging/        Structured logging (slog) setup
 │   ├── metrics/        Prometheus metrics
 │   ├── tracing/        OpenTelemetry tracing
-│   ├── serf/           Heimdall gossip mesh client
+│   ├── serf/           Lattice gossip mesh client
 │   └── meta/           Service metadata
 ├── api/                Protocol Buffers
 ├── pkg/                Generated Connect-RPC code

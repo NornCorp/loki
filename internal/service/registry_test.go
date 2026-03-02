@@ -8,10 +8,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRegistry_ConfigureHeimdall(t *testing.T) {
+func TestRegistry_ConfigureLattice(t *testing.T) {
 	tests := []struct {
 		name      string
-		cfg       *config.HeimdallConfig
+		cfg       *config.LatticeConfig
 		wantErr   bool
 		errString string
 	}{
@@ -22,18 +22,18 @@ func TestRegistry_ConfigureHeimdall(t *testing.T) {
 		},
 		{
 			name: "valid config",
-			cfg: &config.HeimdallConfig{
+			cfg: &config.LatticeConfig{
 				Address: "localhost:7946",
 			},
 			wantErr: false,
 		},
 		{
 			name: "missing address",
-			cfg: &config.HeimdallConfig{
+			cfg: &config.LatticeConfig{
 				Address: "",
 			},
 			wantErr:   true,
-			errString: "heimdall address is required",
+			errString: "lattice address is required",
 		},
 	}
 
@@ -48,7 +48,7 @@ func TestRegistry_ConfigureHeimdall(t *testing.T) {
 			}
 			registry.Register(mockSvc)
 
-			err := registry.ConfigureHeimdall(tt.cfg, []config.Service{})
+			err := registry.ConfigureLattice(tt.cfg, []config.Service{})
 			if tt.wantErr {
 				require.Error(t, err)
 				if tt.errString != "" {
@@ -62,7 +62,7 @@ func TestRegistry_ConfigureHeimdall(t *testing.T) {
 	}
 }
 
-func TestRegistry_StartStopWithoutHeimdall(t *testing.T) {
+func TestRegistry_StartStopWithoutLattice(t *testing.T) {
 	registry := NewRegistry(nil)
 
 	mockSvc := &mockService{
@@ -73,7 +73,7 @@ func TestRegistry_StartStopWithoutHeimdall(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Should work without Heimdall config
+	// Should work without Lattice config
 	err := registry.Start(ctx)
 	require.NoError(t, err)
 	require.True(t, mockSvc.started)

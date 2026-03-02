@@ -34,7 +34,7 @@ type RequestLogRegistry interface {
 	meta.RequestLogProvider
 }
 
-// Registry manages multiple services and optionally registers with Heimdall
+// Registry manages multiple services and optionally registers with Lattice
 type Registry struct {
 	services           []Service
 	serfClient         *serf.Client
@@ -57,7 +57,7 @@ func (r *Registry) Register(svc Service) {
 	r.services = append(r.services, svc)
 }
 
-// Start starts all registered services and optionally joins Heimdall mesh
+// Start starts all registered services and optionally joins Lattice mesh
 func (r *Registry) Start(ctx context.Context) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -69,31 +69,31 @@ func (r *Registry) Start(ctx context.Context) error {
 		}
 	}
 
-	// Join Heimdall mesh if serf client is configured
+	// Join Lattice mesh if serf client is configured
 	if r.serfClient != nil {
 		if err := r.serfClient.Start(ctx); err != nil {
 			// Stop all services on failure
 			for i := len(r.services) - 1; i >= 0; i-- {
 				r.services[i].Stop(ctx)
 			}
-			return fmt.Errorf("failed to join heimdall mesh: %w", err)
+			return fmt.Errorf("failed to join lattice mesh: %w", err)
 		}
 	}
 
 	return nil
 }
 
-// Stop stops all registered services in reverse order and leaves Heimdall mesh
+// Stop stops all registered services in reverse order and leaves Lattice mesh
 func (r *Registry) Stop(ctx context.Context) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	var errs []error
 
-	// Leave Heimdall mesh first
+	// Leave Lattice mesh first
 	if r.serfClient != nil {
 		if err := r.serfClient.Stop(); err != nil {
-			errs = append(errs, fmt.Errorf("failed to leave heimdall mesh: %w", err))
+			errs = append(errs, fmt.Errorf("failed to leave lattice mesh: %w", err))
 		}
 	}
 
@@ -128,15 +128,15 @@ type ServiceInfo struct {
 	Upstreams []string `json:"upstreams,omitempty"`
 }
 
-// ConfigureHeimdall configures the registry to join the Heimdall mesh
-func (r *Registry) ConfigureHeimdall(heimdallCfg *config.HeimdallConfig, allConfigs []config.Service) error {
-	if heimdallCfg == nil {
-		// No Heimdall configuration, run in standalone mode
+// ConfigureLattice configures the registry to join the Lattice mesh
+func (r *Registry) ConfigureLattice(latticeCfg *config.LatticeConfig, allConfigs []config.Service) error {
+	if latticeCfg == nil {
+		// No Lattice configuration, run in standalone mode
 		return nil
 	}
 
-	if heimdallCfg.Address == "" {
-		return fmt.Errorf("heimdall address is required")
+	if latticeCfg.Address == "" {
+		return fmt.Errorf("lattice address is required")
 	}
 
 	// Build service info for all services (basic discovery only)
@@ -163,8 +163,8 @@ func (r *Registry) ConfigureHeimdall(heimdallCfg *config.HeimdallConfig, allConf
 
 	// Create serf client
 	client, err := serf.NewClient(serf.ClientConfig{
-		NodeName: heimdallCfg.NodeName, // Use custom node name if specified, otherwise defaults to hostname
-		JoinAddr: heimdallCfg.Address,
+		NodeName: latticeCfg.NodeName, // Use custom node name if specified, otherwise defaults to hostname
+		JoinAddr: latticeCfg.Address,
 		Tags:     tags,
 	})
 	if err != nil {

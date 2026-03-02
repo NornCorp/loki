@@ -1,5 +1,5 @@
 # HTTP Gateway Example
-# Service chaining with steps and Heimdall mesh discovery.
+# Service chaining with steps and Lattice mesh discovery.
 #
 # Usage:
 #   polymorph server -c examples/http-gateway.hcl
@@ -8,7 +8,7 @@
 #   curl http://localhost:8080/dashboard/user-123
 #   curl http://localhost:8080/health
 
-heimdall {
+lattice {
   address = "localhost:7946"
 }
 

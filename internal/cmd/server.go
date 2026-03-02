@@ -142,9 +142,9 @@ func runServer(cmd *cobra.Command, args []string) error {
 		registry.Register(svc)
 	}
 
-	// Configure Heimdall integration if specified
-	if err := registry.ConfigureHeimdall(cfg.Heimdall, cfg.Services); err != nil {
-		return fmt.Errorf("failed to configure heimdall: %w", err)
+	// Configure Lattice integration if specified
+	if err := registry.ConfigureLattice(cfg.Lattice, cfg.Services); err != nil {
+		return fmt.Errorf("failed to configure lattice: %w", err)
 	}
 
 	// Start services

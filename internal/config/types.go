@@ -6,7 +6,7 @@ import (
 
 // Config is the root configuration structure
 type Config struct {
-	Heimdall *HeimdallConfig `hcl:"heimdall,block"`
+	Lattice *LatticeConfig `hcl:"lattice,block"`
 	Services []Service
 	CLI      *CLIConfig       `hcl:"cli,block"`
 	Logging  *LoggingConfig   `hcl:"logging,block"`
@@ -15,8 +15,8 @@ type Config struct {
 	Body     hcl.Body         `hcl:",remain"`
 }
 
-// HeimdallConfig configures the connection to Heimdall gossip mesh
-type HeimdallConfig struct {
+// LatticeConfig configures the connection to Lattice gossip mesh
+type LatticeConfig struct {
 	Address  string   `hcl:"address"`
 	NodeName string   `hcl:"node_name,optional"` // Optional custom node name (defaults to hostname)
 	Body     hcl.Body `hcl:",remain"`
